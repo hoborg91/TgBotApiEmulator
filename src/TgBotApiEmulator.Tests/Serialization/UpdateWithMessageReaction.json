@@ -1,0 +1,61 @@
+{
+    "business_connection": null,
+    "business_message": null,
+    "callback_query": null,
+    "channel_post": null,
+    "chat_boost": null,
+    "chat_join_request": null,
+    "chat_member": null,
+    "chosen_inline_result": null,
+    "deleted_business_messages": null,
+    "edited_business_message": null,
+    "edited_channel_post": null,
+    "edited_message": null,
+    "inline_query": null,
+    "message": null,
+    "message_reaction": {
+        "actor_chat": null,
+        "chat": {
+            "first_name": null,
+            "id": 1,
+            "is_forum": false,
+            "last_name": null,
+            "title": null,
+            "type": "group",
+            "username": null
+        },
+        "date": 0,
+        "message_id": 3,
+        "new_reaction": [
+            {
+                "emoji": "✍",
+                "type": "emoji"
+            }
+        ],
+        "old_reaction": null,
+        "user": {
+            "added_to_attachment_menu": false,
+            "can_connect_to_business": false,
+            "can_join_groups": false,
+            "can_read_all_group_messages": false,
+            "first_name": null,
+            "has_main_web_app": false,
+            "id": 1001,
+            "is_bot": true,
+            "is_premium": false,
+            "language_code": null,
+            "last_name": null,
+            "supports_inline_queries": false,
+            "username": "bot"
+        }
+    },
+    "message_reaction_count": null,
+    "my_chat_member": null,
+    "poll": null,
+    "poll_answer": null,
+    "pre_checkout_query": null,
+    "purchased_paid_media": null,
+    "removed_chat_boost": null,
+    "shipping_query": null,
+    "update_id": 0
+}
