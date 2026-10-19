@@ -5,7 +5,7 @@ namespace TgBotApiEmulator.Middleware;
 
 internal interface IRecordingMiddlewareUtilities
 {
-    Task<(bool IsBotApiCall, string? path, string? body, string? botTokenString)> TryDeconstructAsync(HttpContext context, CancellationToken cancellationToken);
+    Task<(bool IsBotApiCall, string? path, string? body, string? botToken)> TryDeconstructAsync(HttpContext context, CancellationToken cancellationToken);
 }
 
 internal sealed partial class RecordingMiddlewareUtilities : IRecordingMiddlewareUtilities
@@ -16,7 +16,7 @@ internal sealed partial class RecordingMiddlewareUtilities : IRecordingMiddlewar
         bool IsBotApiCall,
         string? path,
         string? body,
-        string? botTokenString)> TryDeconstructAsync(
+        string? botToken)> TryDeconstructAsync(
         HttpContext context,
         CancellationToken cancellationToken)
     {
@@ -27,10 +27,10 @@ internal sealed partial class RecordingMiddlewareUtilities : IRecordingMiddlewar
         var body = match.Success
             ? await PeekRequestBody(context)
             : null;
-        var botTokenString = match.Success
-            ? match.Groups["botTokenPart"].Value[3..]
+        var botToken = match.Success
+            ? match.Groups["botTokenPart"].Value[4..]
             : null;
-        return (match.Success, path, body, botTokenString);
+        return (match.Success, path, body, botToken);
     }
 
     private static async Task<string?> PeekRequestBody(HttpContext context)

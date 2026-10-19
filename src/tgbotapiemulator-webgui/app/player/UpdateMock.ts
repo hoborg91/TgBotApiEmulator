@@ -13,21 +13,22 @@ export function GetUpdateMocks() {
         return characterNames.length;
     }
 
-    let updates = [] as Req<components["schemas"]["Update"]>[];
+    const updates = [] as Req<components["schemas"]["Update"]>[];
     let offset = 0;
     for (const record of Hamlet()) {
         if (record.type === "speech") {
-            updates.push({
-                update_id: offset,
-                    message: {
-                        message_id: offset,
-                        from: {
-                            id: getUserId(record.character!),
-                            username: record.character,
-                        },
-                        text: record.speech,
-                    }
-                } as Req<components["schemas"]["Update"]>);
+        updates.push({
+            update_id: offset,
+                message: {
+                    message_id: offset,
+                    from: {
+                        id: getUserId(record.character!),
+                        username: record.character,
+                        is_bot: record.character !== "Hamlet",
+                    },
+                    text: record.speech,
+                }
+            } as Req<components["schemas"]["Update"]>);
         } else if (record.type === "reaction") {
             updates.push({
                 update_id: offset,
@@ -36,6 +37,7 @@ export function GetUpdateMocks() {
                     user: {
                         id: getUserId(record.character!),
                         username: record.character,
+                        is_bot: record.character !== "Hamlet",
                     },
                     new_reaction: [
                         {

@@ -1,23 +1,44 @@
-import type { paths, components } from "../contracts/emulator-api.g";
-import createClient from "openapi-fetch";
+import type { components } from "../contracts/emulator-api.g";
 import Player from "../components/Player/Player";
 import { check, Req } from "../utils/types/Req";
 import { GetUpdateMocks } from "./UpdateMock";
+import { createApiClient } from "../utils/api";
+import Link from "next/link";
 
-export default async function Page() {
-  
-  const client = createClient<paths>({ baseUrl: "http://localhost:5134" });
+interface PageProps {
+  searchParams: Promise<{ sessionId?: string }>;
+}
 
-  // const { data, error } = await client.GET("/test/sessions/{sessionId}/updates", { params: { path: { sessionId: 1 }}});
-  // if (error) {
-  //  return <div>Error</div>;
-  // }
+export default async function Page({ searchParams }: PageProps) {
+  const { sessionId: sessionIdRaw } = await searchParams;
+  const client = createApiClient();
 
-  // const updates = check(data);
+  let updates: Req<components["schemas"]["Update"]>[];
 
-  const updates = GetUpdateMocks();
+  if (sessionIdRaw === undefined) {
+    updates = GetUpdateMocks();
+  } else {
+    const sessionId = Number(sessionIdRaw);
+    if (!Number.isInteger(sessionId)) {
+      return <div>Invalid session id: {sessionIdRaw}</div>;
+    }
+
+    const { data, error } = await client.GET("/test/sessions/{sessionId}/updates", {
+      params: { path: { sessionId } },
+    });
+    if (error) {
+      return <div>Failed to load updates for session {sessionIdRaw}.</div>;
+    }
+
+    updates = data.map(update => check(update));
+  }
 
   return (
-    <Player updates={updates} />
+    <div>
+      {sessionIdRaw !== undefined && (
+        <p><Link href="/sessions">← Sessions</Link></p>
+      )}
+      <Player updates={updates} />
+    </div>
   );
 }

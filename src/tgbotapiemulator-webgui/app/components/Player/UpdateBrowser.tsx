@@ -24,16 +24,16 @@ export default function UpdateBrowser({ updates, currentOffset: offset, setCurre
     <div>
         <div>
             <Item>{offset === null ? "No offset selected" : `Offset ${offset}`}</Item>
-            <Button variant="outline" onClick={() => setOffset(prev => prev === null || prev <= 0 ? null : prev - 1)}>Backward</Button>
-            <Button variant="outline" onClick={() => setOffset(prev => prev === null ? 0 : (prev < updates.length ? prev + 1 : prev))}>Forward</Button>
+            <Button variant="outline" onClick={() => setOffset(prev => prev === null || prev <= 1 ? null : prev - 1)}>Backward</Button>
+            <Button variant="outline" onClick={() => setOffset(prev => prev === null ? 1 : (prev < updates.length ? prev + 1 : prev))}>Forward</Button>
         </div>
         <ScrollArea className="h-72 w-48 rounded-md border">
         <div className="p-4">
             <HistoryItem itemOffset={null}>Start</HistoryItem>
             <Separator className="my-2" />
-            {updates.map(update => (
+            {updates.map((update, index) => (
             <React.Fragment key={update.update_id}>
-                <HistoryItem itemOffset={update.update_id}>{ToLabel(update)}</HistoryItem>
+                <HistoryItem itemOffset={index + 1}>{ToLabel(update)}</HistoryItem>
                 <Separator className="my-2" />
             </React.Fragment>
             ))}

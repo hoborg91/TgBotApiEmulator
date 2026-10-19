@@ -20,8 +20,14 @@ public interface ISessionFacadeRead
     Task<IReadOnlyCollection<Update>> GetOrderedUpdatesAsync(
         TgSessionId sessionId,
         CancellationToken cancellationToken,
-        UpdateOffset? afterOffset = null,
-        string? updateType = null);
+        TgSessionRecordId? fromIncluding = null,
+        string? updateType = null,
+        bool excludeProducedByBot = false);
+
+    Task<TgSessionRecordId?> FindLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        UpdateOffset botOffset,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<TgSession>> GetSessionsAsync(
         CancellationToken cancellationToken,
@@ -41,7 +47,7 @@ public interface IRecordingProxyFacadeWrite
     Task RecordBotRequestAsync(
         TgSessionId sessionId,
         HttpRequest request,
-        string? path,
+        string tgBotApiMethod,
         string? body,
         CancellationToken cancellationToken);
 
@@ -49,11 +55,23 @@ public interface IRecordingProxyFacadeWrite
         TgSessionId sessionId,
         HttpStatusCode statusCode,
         string content,
+        string tgBotApiMethod,
         CancellationToken cancellationToken);
 
-    Task<long> RecordUpdateAsync(
+    Task<UpdateOffset> RecordUpdateAsync(
         TgSessionId sessionId,
         Update update,
+        CancellationToken cancellationToken,
+        TgSessionRecordId? parentId = null,
+        bool isProducedByBot = false);
+
+    Task<TgSessionRecordId?> GetLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken);
+
+    Task SetLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        TgSessionRecordId recordId,
         CancellationToken cancellationToken);
 }
 
@@ -88,20 +106,28 @@ internal sealed class RecordingProxyFacade(
     public async Task<IReadOnlyCollection<Update>> GetOrderedUpdatesAsync(
         TgSessionId sessionId,
         CancellationToken cancellationToken,
-        UpdateOffset? afterOffset = null,
-        string? updateType = null)
+        TgSessionRecordId? fromIncluding = null,
+        string? updateType = null,
+        bool excludeProducedByBot = false)
     {
         var orderedRecords = await storage.GetOrderedUpdatesAsync(
             sessionId,
             cancellationToken,
-            afterOffset,
-            updateType);
+            fromIncluding,
+            updateType,
+            excludeProducedByBot);
         var result = orderedRecords
             .Select(StorageToApplication)
             .ToList();
 
         return result;
     }
+
+    public Task<TgSessionRecordId?> FindLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        UpdateOffset botOffset,
+        CancellationToken cancellationToken)
+        => storage.FindLastReceivedUpdateRecordIdAsync(sessionId, botOffset, cancellationToken);
 
     public async Task<IReadOnlyCollection<TgSession>> GetSessionsAsync(
         CancellationToken cancellationToken,
@@ -126,26 +152,15 @@ internal sealed class RecordingProxyFacade(
     public async Task RecordBotRequestAsync(
         TgSessionId sessionId,
         HttpRequest request,
-        string? path,
+        string tgBotApiMethod,
         string? body,
         CancellationToken cancellationToken)
     {
-        var tgBotApiMethod = path == null
-            ? string.Empty
-            : (path.StartsWith('/')
-                ? path.TrimStart('/')
-                : path);
-
-        if (tgBotApiMethod.Contains('/'))
-        {
-            throw new NotSupportedException($"Path {tgBotApiMethod} is not supported.");
-        }
-
         //var sessionId = GetCurrentSessionId();
 
         await storage.RecordBotRequestAsync(
             sessionId,
-            DateTime.UtcNow,
+            DateTime.UtcNow, // TODO Use TimeProvider instead of DateTime static properties.
             request.Method,
             tgBotApiMethod,
             request.QueryString.ToString(),
@@ -158,53 +173,93 @@ internal sealed class RecordingProxyFacade(
         TgSessionId sessionId,
         HttpStatusCode statusCode,
         string content,
+        string tgBotApiMethod,
         CancellationToken cancellationToken)
     {
+        var parentId = await storage.RecordTgServerResponseAsync(
+            sessionId,
+            DateTime.UtcNow,
+            statusCode.ToString(),
+            content,
+            cancellationToken);
+
         try
         {
-            var updates = JsonSerializer.Deserialize<ApiResponse<Update[]>>(
-                content,
-                jsonOptions.Value.JsonSerializerOptions)?.Result!;
-
-            foreach (var update in updates)
+            if (tgBotApiMethod == "getUpdates")
             {
-                await RecordUpdateAsync(sessionId, update, cancellationToken);
+                var updates = JsonSerializer.Deserialize<ApiResponse<Update[]>>(
+                    content,
+                    jsonOptions.Value.JsonSerializerOptions)?.Result;
+
+                if (updates != null)
+                {
+                    foreach (var update in updates)
+                    {
+                        await RecordUpdateAsync(sessionId, update, cancellationToken, parentId);
+                    }
+                }
+            }
+            else if (tgBotApiMethod == "sendMessage")
+            {
+                var message = JsonSerializer.Deserialize<ApiResponse<Message>>(
+                    content,
+                    jsonOptions.Value.JsonSerializerOptions)?.Result;
+
+                if (message != null)
+                {
+                    await RecordUpdateAsync(
+                        sessionId,
+                        new Update { Message = message },
+                        cancellationToken,
+                        parentId,
+                        isProducedByBot: true);
+                }
             }
         }
         catch (JsonException)
         {
-            await storage.RecordTgServerResponseAsync(
-                sessionId,
-                DateTime.UtcNow,
-                statusCode.ToString(),
-                content,
-                cancellationToken);
+            // The parent record with the raw content is already saved;
+            // child records are best-effort.
         }
     }
 
-    public async Task<long> RecordUpdateAsync(
+    public async Task<UpdateOffset> RecordUpdateAsync(
         TgSessionId sessionId,
         Update update,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TgSessionRecordId? parentId = null,
+        bool isProducedByBot = false)
     {
-        var content = JsonSerializer.Serialize(
-            new ApiResponse<Update[]>
-            {
-                Ok = true,
-                Result = [update],
-            },
-            jsonOptions.Value.JsonSerializerOptions);
+        var content = JsonSerializer.Serialize(update, jsonOptions.Value.JsonSerializerOptions);
 
-        var result = await storage.RecordUpdateAsync(
+        // A positive ID means the update was recorded from a real Telegram response
+        // (its real Telegram update ID must be preserved). Zero or negative means the
+        // update was created locally and has no Telegram update ID.
+        UpdateOffset? updateId = update.Id > 0
+            ? new UpdateOffset(update.Id)
+            : null;
+
+        return await storage.RecordUpdateAsync(
             sessionId,
             DateTime.UtcNow,
             content,
             update.Type.ToString(),
-            update.Id,
+            updateId,
+            parentId,
+            isProducedByBot,
             cancellationToken);
-
-        return result.Offset;
     }
+
+    public Task<TgSessionRecordId?> GetLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken)
+        => storage.GetLastReceivedUpdateRecordIdAsync(sessionId, cancellationToken);
+
+    public Task SetLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        TgSessionRecordId recordId,
+        CancellationToken cancellationToken)
+        => storage.SetLastReceivedUpdateRecordIdAsync(sessionId, recordId, cancellationToken);
 
     private TgSessionId GetCurrentSessionId()
     {
@@ -214,21 +269,19 @@ internal sealed class RecordingProxyFacade(
 
     private Update StorageToApplication(TgSessionUpdateRecord updateRecord)
     {
-        var updates = JsonSerializer.Deserialize<ApiResponse<Update[]>>(
+        var update = JsonSerializer.Deserialize<Update>(
             updateRecord.EscapedContent,
-            jsonOptions.Value.JsonSerializerOptions)?.Result;
+            jsonOptions.Value.JsonSerializerOptions)
+            ?? throw new Exception($"Cannot parse the update.");
 
-        if (updates == null || updates.Length != 1)
-        {
-            throw new Exception($"Cannot parse the update.");
-        }
-
-        var update = updates.Single();
-        update.Id = updateRecord.Offset.Offset;
+        // The Emulator identifies updates by their record primary key. This works for
+        // both real Telegram updates and locally produced ones (which have no Telegram ID).
+        var queueId = (int)updateRecord.Id.Value;
+        update.Id = queueId;
 
         if (update is { Message: { } m })
         {
-            m.Id = updateRecord.Offset.Offset;
+            m.Id = queueId;
         }
 
         return update;

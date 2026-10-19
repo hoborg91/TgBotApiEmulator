@@ -79,13 +79,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         
         <div className={`px-4 py-2 rounded-2xl ${
           isUser 
-            ? 'bg-green-50 text-gray-800 rounded-br-none' 
-            : 'bg-gray-50 text-gray-800 rounded-bl-none'
+            ? 'bg-green-50 dark:bg-green-900/30 text-gray-800 dark:text-green-200 rounded-br-none' 
+            : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-none'
         }`}>
           <p className="text-sm whitespace-pre-wrap"><b>{message.from.name}</b></p>
           {message.replyTo && (
             <div className={`text-xs p-2 mb-1 rounded ${
-              isUser ? 'bg-blue-400' : 'bg-gray-300'
+              isUser ? 'bg-blue-400 dark:bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
             }`}>
               Replying to: {message.replyTo}
             </div>
@@ -94,7 +94,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <p className="text-sm whitespace-pre-wrap">{message.text}</p>
           
           <div className={`text-xs mt-1 flex items-center space-x-1 ${
-            isUser ? 'text-green-500 justify-end' : 'text-gray-500 justify-start'
+            isUser ? 'text-green-500 dark:text-green-400 justify-end' : 'text-gray-500 dark:text-gray-400 justify-start'
           }`}>
             {message.reactions && message.reactions.length > 0 && (
               <div className={isUser ? 'text-right' : 'text-left'}>

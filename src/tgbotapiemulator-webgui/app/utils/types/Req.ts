@@ -3,7 +3,7 @@ export type Req<T> = T extends object ? {
 } : T;
 
 export function check<T extends object>(obj: T): Req<T> {
-    function validate(current: any, path: string[] = []): void {
+    function validate(current: unknown, path: string[] = []): void {
         const currentPath = path.join('.') || 'root';
         
         // Check for null or undefined
@@ -14,14 +14,15 @@ export function check<T extends object>(obj: T): Req<T> {
 
         // Handle objects (but not arrays, dates, etc.)
         if (typeof current === 'object' && !Array.isArray(current) && !(current instanceof Date) && current !== null) {
-            const keys = Object.keys(current);
+            const record = current as Record<string, unknown>;
+            const keys = Object.keys(record);
             
             if (keys.length === 0) {
                 throw new Error(`Empty object at path: ${currentPath}`);
             }
             
             for (const key of keys) {
-                validate(current[key], [...path, key]);
+                validate(record[key], [...path, key]);
             }
         }
         

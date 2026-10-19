@@ -1,6 +1,0 @@
-@TgBotApiEmulator_HostAddress = http://localhost:5134
-
-GET {{TgBotApiEmulator_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -8,7 +8,7 @@ public interface IMyAssert
 {
     Task<WaitForUpdateResultBase> WaitForMessageFromBot(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId afterOffset,
         long chatId,
         Regex messageTextRegex,
         TimeSpan timeout,
@@ -16,7 +16,7 @@ public interface IMyAssert
 
     Task<WaitForUpdateResultBase> WaitForMessageReactionFromBot(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId afterOffset,
         long chatId,
         int messageId,
         ReactionType reactionType,
@@ -34,12 +34,12 @@ public abstract record WaitForUpdateResultBase(AssertResult Result);
 
 internal sealed record WaitForUpdateResultSuccess(
     TimeSpan Elapsed,
-    UpdateOffset SatisfyingUpdateOffset
+    TgSessionRecordId SatisfyingUpdateOffset
 ) : WaitForUpdateResultBase(AssertResult.Success);
 
 internal sealed record WaitForUpdateResultFailure(
     TimeSpan Elapsed,
-    UpdateOffset LastObservedOffset,
+    TgSessionRecordId LastObservedOffset,
     WaitForUpdateResultFailureReason FailureReason,
     string FailureDescription
 ) : WaitForUpdateResultBase(AssertResult.Failure);
@@ -53,7 +53,7 @@ internal sealed class MyAssert(IUpdateReader updateReader) : IMyAssert
 {
     public async Task<WaitForUpdateResultBase> WaitForMessageFromBot(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId afterOffset,
         long chatId,
         Regex messageTextRegex,
         TimeSpan timeout,
@@ -72,7 +72,7 @@ internal sealed class MyAssert(IUpdateReader updateReader) : IMyAssert
 
     public async Task<WaitForUpdateResultBase> WaitForMessageReactionFromBot(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId afterOffset,
         long chatId,
         int messageId,
         ReactionType reactionType,
@@ -129,7 +129,7 @@ internal sealed class MyAssert(IUpdateReader updateReader) : IMyAssert
 
     private async Task<WaitForUpdateResultBase> WaitForUpdate(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId afterOffset,
         Predicate<Update> filter,
         TimeSpan timeout,
         CancellationToken cancellationToken)

@@ -2,13 +2,16 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using TgBotApiEmulator.Application;
+using TgBotApiEmulator.Contracts;
+using TgBotApiEmulator.Utilities;
 
 namespace TgBotApiEmulator.Controllers;
 
 [ApiController]
 [Route("assert")]
 public class AssertController(
-    IMyAssert myAssert) : Controller
+    IMyAssert myAssert,
+    IRecordingProxyFacadeWrite facade) : Controller
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -22,9 +25,12 @@ public class AssertController(
         [FromBody] MessageAssert assert,
         CancellationToken cancellationToken)
     {
+        var botTokenHash = HashHelper.Hash(assert.BotToken);
+        var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+
         var result = await myAssert.WaitForMessageFromBot(
-            new(assert.SessionId),
-            new(assert.AfterOffset),
+            sessionId,
+            new TgSessionRecordId(assert.AfterOffset),
             assert.ChatId,
             new System.Text.RegularExpressions.Regex(assert.MessageRegexPattern),
             TimeSpan.FromMilliseconds(assert.TimeoutMilliseconds),
@@ -39,9 +45,12 @@ public class AssertController(
         [FromBody] MessageReactionAssert assert,
         CancellationToken cancellationToken)
     {
+        var botTokenHash = HashHelper.Hash(assert.BotToken);
+        var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+
         var result = await myAssert.WaitForMessageReactionFromBot(
-            new(assert.SessionId),
-            new(assert.AfterOffset),
+            sessionId,
+            new TgSessionRecordId(assert.AfterOffset),
             assert.ChatId,
             assert.MessageId,
             assert.ReactionType,
@@ -59,20 +68,20 @@ public class AssertController(
 }
 
 public abstract record Assert(
-    long SessionId,
+    string BotToken,
     int TimeoutMilliseconds);
 
 public record MessageAssert(
-    long SessionId,
+    string BotToken,
     int AfterOffset,
     long ChatId,
     string MessageRegexPattern,
-    int TimeoutMilliseconds) : Assert(SessionId, TimeoutMilliseconds);
+    int TimeoutMilliseconds) : Assert(BotToken, TimeoutMilliseconds);
 
 public record MessageReactionAssert(
-    long SessionId,
+    string BotToken,
     int AfterOffset,
     long ChatId,
     int MessageId,
     string ReactionType,
-    int TimeoutMilliseconds) : Assert(SessionId, TimeoutMilliseconds);
+    int TimeoutMilliseconds) : Assert(BotToken, TimeoutMilliseconds);

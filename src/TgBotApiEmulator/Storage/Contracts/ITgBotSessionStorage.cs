@@ -26,11 +26,26 @@ internal interface ITgBotSessionStorage
     //     CancellationToken cancellationToken,
     //     UpdateOffset? afterOffset = null);
 
+    /// <summary>
+    /// Returns updates ordered by their queue position (the record primary key).
+    /// <paramref name="fromIncluding"/> is a queue position (record primary key), not a Telegram update ID.
+    /// </summary>
     Task<IEnumerable<TgSessionUpdateRecord>> GetOrderedUpdatesAsync(
         TgSessionId sessionId,
         CancellationToken cancellationToken,
-        UpdateOffset? afterOffset = null,
-        string? updateType = null);
+        TgSessionRecordId? fromIncluding = null,
+        string? updateType = null,
+        bool excludeProducedByBot = false);
+
+    /// <summary>
+    /// Finds the record primary key of the last update the bot received, based on the
+    /// offset the bot passed to getUpdates. The offset may belong either to the Telegram
+    /// update ID space (after recording proxy mode) or to the Emulator queue space.
+    /// </summary>
+    Task<TgSessionRecordId?> FindLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        UpdateOffset botOffset,
+        CancellationToken cancellationToken);
 
     Task<TgSessionRecord?> GetMostRecentRecordAsync(
         CancellationToken cancellationToken);
@@ -45,18 +60,34 @@ internal interface ITgBotSessionStorage
         string? body,
         CancellationToken cancellationToken);
 
-    Task RecordTgServerResponseAsync(
+    Task<TgSessionRecordId> RecordTgServerResponseAsync(
         TgSessionId tgSessionId,
         DateTime timestamp,
         string statusCode,
         string content,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records an update. <paramref name="updateId"/> is the real Telegram update ID
+    /// for updates received from Telegram servers, or null for updates produced locally.
+    /// Locally produced updates are identified by the record primary key.
+    /// </summary>
     Task<UpdateOffset> RecordUpdateAsync(
         TgSessionId tgSessionId,
         DateTime timestamp,
         string content,
         string updateType,
-        int offset,
+        UpdateOffset? updateId,
+        TgSessionRecordId? parentId,
+        bool isProducedByBot,
+        CancellationToken cancellationToken);
+
+    Task<TgSessionRecordId?> GetLastReceivedUpdateRecordIdAsync(
+        TgSessionId tgSessionId,
+        CancellationToken cancellationToken);
+
+    Task SetLastReceivedUpdateRecordIdAsync(
+        TgSessionId tgSessionId,
+        TgSessionRecordId recordId,
         CancellationToken cancellationToken);
 }

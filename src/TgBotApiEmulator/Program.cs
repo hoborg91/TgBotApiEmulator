@@ -1,7 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using TgBotApiEmulator;
 using TgBotApiEmulator.Application;
 using TgBotApiEmulator.Application.Postman;
 using TgBotApiEmulator.Middleware;
@@ -18,14 +17,18 @@ builder.Configuration.AddCommandLine(args);
 builder.Services.Configure<TgBotApiEmulator.Options>(builder.Configuration.GetSection("Settings"));
 
 builder.Services.AddDbContext<TgBotSessionContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("TgBotSessionContextSQLite")));
+    options
+        .UseLazyLoadingProxies()
+        .UseSqlite(builder.Configuration.GetConnectionString("TgBotSessionContextSQLite")));
 builder.Services.AddScoped<ITgBotSessionStorage, TgBotSessionStorage>();
 builder.Services.AddScoped<ISettingsStorage, SettingsStorage>();
+builder.Services.AddScoped<IBotOperatingModeStorage, BotOperatingModeStorage>();
 
 builder.Services.AddHttpClient();
 
 builder.Services.AddScoped<ISessionFacadeRead, RecordingProxyFacade>();
 builder.Services.AddScoped<IRecordingProxyFacadeWrite, RecordingProxyFacade>();
+builder.Services.AddScoped<IOperatingModeFacade, OperatingModeFacade>();
 builder.Services.AddScoped<IClock, Clock>();
 builder.Services.AddScoped<IMyAssert, MyAssert>();
 builder.Services.AddScoped<IUpdateReader, UpdateReader>();
@@ -35,6 +38,8 @@ builder.Services.AddScoped<IPostmanFacade, PostmanFacade>();
 
 builder.Services.AddScoped<IRecordingMiddlewareUtilities, RecordingMiddlewareUtilities>();
 builder.Services.AddScoped<RecordingProxyMiddleware>();
+
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services
     .AddControllers()
@@ -69,21 +74,7 @@ var settings = startupScope.ServiceProvider.GetRequiredService<IOptions<TgBotApi
 var dbContext = startupScope.ServiceProvider.GetRequiredService<TgBotSessionContext>();
 await dbContext.Database.EnsureCreatedAsync(startupCts.Token);
 
-var serverOperatingMode = settings.ServerOperatingMode;
-
-logger.LogInformation("Server operating mode: {ServerOperatingMode}.", serverOperatingMode);
-
-if (serverOperatingMode == ServerOperatingMode.Emulator)
-{
-}
-else if (serverOperatingMode == ServerOperatingMode.RecordingProxy)
-{
-    app.UseMiddleware<RecordingProxyMiddleware>();
-}
-else
-{
-    throw new InvalidOperationException($"Server operating mode \"{serverOperatingMode}\" is not supported.");
-}
+app.UseMiddleware<RecordingProxyMiddleware>();
 
 app.MapControllers();
 

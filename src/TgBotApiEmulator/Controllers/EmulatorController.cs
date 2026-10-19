@@ -15,8 +15,6 @@ public sealed class EmulatorController(
         MessageRequest request,
         CancellationToken cancellationToken)
     {
-        Console.WriteLine($"message({request.Text})...");
-
         var botTokenHash = HashHelper.Hash(request.BotToken);
         var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
 
@@ -41,8 +39,7 @@ public sealed class EmulatorController(
             },
             cancellationToken);
 
-        Console.WriteLine($"message returns");
-        return new(updateId);
+        return new(updateId.Value);
     }
 }
 

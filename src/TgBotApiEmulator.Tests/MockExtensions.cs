@@ -43,14 +43,16 @@ internal static class MockExtensions
             .Setup(s => s.GetOrderedUpdatesAsync(
                 It.IsAny<TgSessionId>(),
                 It.IsAny<CancellationToken>(),
-                It.IsAny<UpdateOffset?>(),
-                It.IsAny<string?>()
+                It.IsAny<TgSessionRecordId?>(),
+                It.IsAny<string?>(),
+                It.IsAny<bool>()
             ))
             .ReturnsAsync(
                 (TgSessionId sessionId,
                 CancellationToken cancellationToken,
-                UpdateOffset? afterOffset,
-                string? updateType) =>
+                TgSessionRecordId? fromIncluding,
+                string? updateType,
+                bool excludeProducedByBot) =>
                 {
                     var ms = totalWaitingMilliseconds();
                     var newUpdates = doNotExist
@@ -62,7 +64,7 @@ internal static class MockExtensions
                     }
                     exist.AddRange(newUpdates.SelectMany(nu => nu.Updates));
 
-                    return [.. exist.Where(u => afterOffset == null || u.Id > afterOffset.Value.Offset)];
+                    return [.. exist.Where(u => fromIncluding == null || u.Id >= fromIncluding.Value.Value)];
                 });
 
         return recordingProxyFacadeReadMock;

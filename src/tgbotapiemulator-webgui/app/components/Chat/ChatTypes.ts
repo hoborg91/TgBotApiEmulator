@@ -31,4 +31,5 @@ export interface Message {
   replyTo?: string;
   reactions?: Reaction[];
   avatar?: string;
+  isBot?: boolean;
 }

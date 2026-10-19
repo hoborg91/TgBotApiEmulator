@@ -1,12 +1,14 @@
 ﻿using System.Text;
 using TgBotApiEmulator.Application;
+using TgBotApiEmulator.Contracts;
 using TgBotApiEmulator.Utilities;
 
 namespace TgBotApiEmulator.Middleware;
 
 internal sealed class RecordingProxyMiddleware(
     IRecordingMiddlewareUtilities utilities,
-    IRecordingProxyFacadeWrite facade) : IMiddleware
+    IRecordingProxyFacadeWrite facade,
+    IOperatingModeFacade operatingModeFacade) : IMiddleware
 {
     public async Task InvokeAsync(
         HttpContext context,
@@ -14,7 +16,7 @@ internal sealed class RecordingProxyMiddleware(
     {
         var cancellationToken = context.RequestAborted;
 
-        var (isBotApiCall, path, body, botTokenString) = await utilities.TryDeconstructAsync(context, cancellationToken);
+        var (isBotApiCall, path, body, botToken) = await utilities.TryDeconstructAsync(context, cancellationToken);
 
         if (!isBotApiCall)
         {
@@ -22,14 +24,23 @@ internal sealed class RecordingProxyMiddleware(
             return;
         }
 
-        var botTokenHash = HashHelper.Hash(botTokenString!);
+        var operatingMode = await operatingModeFacade.GetOperatingModeAsync(botToken!, cancellationToken);
 
+        if (operatingMode == OperatingMode.Emulator)
+        {
+            await next(context);
+            return;
+        }
+
+        var tgBotApiMethod = GetTgBotApiMethod(path);
+
+        var botTokenHash = HashHelper.Hash(botToken!);
         var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
 
         await facade.RecordBotRequestAsync(
             sessionId,
             context.Request,
-            path,
+            tgBotApiMethod,
             body,
             cancellationToken);
 
@@ -52,9 +63,26 @@ internal sealed class RecordingProxyMiddleware(
             sessionId,
             result.StatusCode,
             content,
+            tgBotApiMethod,
             cancellationToken);
 
         await context.Response.WriteAsync(content, cancellationToken);
+    }
+
+    private static string GetTgBotApiMethod(string? path)
+    {
+        var tgBotApiMethod = path == null
+            ? string.Empty
+            : (path.StartsWith('/')
+                ? path.TrimStart('/')
+                : path);
+
+        if (tgBotApiMethod.Contains('/'))
+        {
+            throw new NotSupportedException($"Path {tgBotApiMethod} is not supported.");
+        }
+
+        return tgBotApiMethod;
     }
 
     private static HttpRequestMessage PrepareRetranslatedRequestMessage(

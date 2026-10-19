@@ -49,7 +49,7 @@ public class UpdateReaderTests
         // Act
         var (update, elapsed, offset) = await Sut.WaitForUpdateAsync(
             _tgSessionId,
-            new(InitialOffsetValue),
+            new TgSessionRecordId(InitialOffsetValue),
             u => u is { Message: { } m } && m.Text == "Good",
             TimeSpan.FromMilliseconds(SomeMilliseconds * 10),
             CancellationToken.None
@@ -59,8 +59,8 @@ public class UpdateReaderTests
         Assert.Multiple(() =>
         {
             Assert.That(update, Is.EqualTo(updates[2].Updates.Single()));
-            Assert.That(offset.Offset, Is.EqualTo(InitialOffsetValue + 2));
-            Assert.That(elapsed.TotalMilliseconds, Is.EqualTo(0));
+            Assert.That(offset.Value, Is.EqualTo(InitialOffsetValue + 2));
+            Assert.That(elapsed.TotalMilliseconds, Is.Zero);
         });
     }
 
@@ -93,7 +93,7 @@ public class UpdateReaderTests
         // Act
         var (update, elapsed, offset) = await Sut.WaitForUpdateAsync(
             _tgSessionId,
-            new(InitialOffsetValue),
+            new TgSessionRecordId(InitialOffsetValue),
             u => u is { Message: { } m } && m.Text == "Good",
             TimeSpan.FromMilliseconds(SomeMilliseconds * 10),
             CancellationToken.None
@@ -103,7 +103,7 @@ public class UpdateReaderTests
         Assert.Multiple(() =>
         {
             Assert.That(update, Is.EqualTo(updates[2].Updates.Single()));
-            Assert.That(offset.Offset, Is.EqualTo(InitialOffsetValue + 2));
+            Assert.That(offset.Value, Is.EqualTo(InitialOffsetValue + 2));
             Assert.That(elapsed.TotalMilliseconds, Is.GreaterThan(0));
         });
     }
@@ -135,7 +135,7 @@ public class UpdateReaderTests
         // Act
         var (update, elapsed, offset) = await Sut.WaitForUpdateAsync(
             _tgSessionId,
-            new(InitialOffsetValue),
+            new TgSessionRecordId(InitialOffsetValue),
             u => u is { Message: { } m } && m.Text == "Good",
             TimeSpan.FromMilliseconds(SomeMilliseconds * 10),
             CancellationToken.None
@@ -144,8 +144,8 @@ public class UpdateReaderTests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(update, Is.EqualTo(null));
-            Assert.That(offset.Offset, Is.EqualTo(InitialOffsetValue + 3));
+            Assert.That(update, Is.Null);
+            Assert.That(offset.Value, Is.EqualTo(InitialOffsetValue + 3));
         });
     }
 
@@ -167,16 +167,19 @@ public class UpdateReaderTests
         _recordingProxyFacadeReadMock.SetupGetOrderedUpdatesAsync(
             () => totalWaitingMilliseconds,
             [
-                (SomeMilliseconds * 1, [Msg(InitialOffsetValue + 0, "Good")]),
-                (SomeMilliseconds * 2, [Msg(InitialOffsetValue + 1, "Bad 1")]),
-                (SomeMilliseconds * 3, [Msg(InitialOffsetValue + 2, "Bad 2")]),
-                (SomeMilliseconds * 4, [Msg(InitialOffsetValue + 3, "Bad 3")]),
+                // The offset is inclusive: the update with an ID equal to the passed
+                // offset WOULD be considered. To verify the timeout, the "Good" update
+                // must have an ID strictly below the offset.
+                (SomeMilliseconds * 1, [Msg(InitialOffsetValue - 1, "Good")]),
+                (SomeMilliseconds * 2, [Msg(InitialOffsetValue + 0, "Bad 1")]),
+                (SomeMilliseconds * 3, [Msg(InitialOffsetValue + 1, "Bad 2")]),
+                (SomeMilliseconds * 4, [Msg(InitialOffsetValue + 2, "Bad 3")]),
             ]);
 
         // Act
         var (update, elapsed, offset) = await Sut.WaitForUpdateAsync(
             _tgSessionId,
-            new(InitialOffsetValue),
+            new TgSessionRecordId(InitialOffsetValue),
             u => u is { Message: { } m } && m.Text == "Good",
             TimeSpan.FromMilliseconds(SomeMilliseconds * 10),
             CancellationToken.None
@@ -185,8 +188,8 @@ public class UpdateReaderTests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(update, Is.EqualTo(null));
-            Assert.That(offset.Offset, Is.EqualTo(InitialOffsetValue + 3));
+            Assert.That(update, Is.Null);
+            Assert.That(offset.Value, Is.EqualTo(InitialOffsetValue + 2));
         });
     }
 
@@ -217,7 +220,7 @@ public class UpdateReaderTests
         // Act
         var (update, elapsed, offset) = await Sut.WaitForUpdateAsync(
             _tgSessionId,
-            new(InitialOffsetValue),
+            new TgSessionRecordId(InitialOffsetValue),
             u => u is { Message: { } m } && m.Text == "Good",
             TimeSpan.FromMilliseconds(SomeMilliseconds * 5),
             CancellationToken.None
@@ -226,8 +229,8 @@ public class UpdateReaderTests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(update, Is.EqualTo(null));
-            Assert.That(offset.Offset, Is.EqualTo(InitialOffsetValue + 2));
+            Assert.That(update, Is.Null);
+            Assert.That(offset.Value, Is.EqualTo(InitialOffsetValue + 2));
         });
     }
 
@@ -253,7 +256,7 @@ public class UpdateReaderTests
         Assert.That(
             () => Sut.WaitForUpdateAsync(
                 _tgSessionId,
-                new(InitialOffsetValue),
+                new TgSessionRecordId(InitialOffsetValue),
                 _ => true,
                 TimeSpan.FromMilliseconds(1000),
                 CancellationToken.None
@@ -283,7 +286,7 @@ public class UpdateReaderTests
         Assert.That(
             () => Sut.WaitForUpdateAsync(
                 _tgSessionId,
-                new(InitialOffsetValue),
+                new TgSessionRecordId(InitialOffsetValue),
                 _ => true,
                 TimeSpan.FromMilliseconds(1),
                 CancellationToken.None

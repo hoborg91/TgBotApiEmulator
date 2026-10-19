@@ -2,26 +2,56 @@
 
 This is a framework for Telegram bot testing. It allows to decouple the part of development and testing cycle from Telegram infrastructure.
 
-> ⚠ Fow now only `getUpdates` technique of bot interaction is supported.
+> ⚠ For now only `getUpdates` technique of bot interaction is supported.
 
 ## Example: regression testing
 
-You can use the Emulator to record some proper interaction of users with the bot. Once you add new feature to the bot you can run that previously recroded flow to check if the flow is broken. This test can be saved as a Postman collection. Also it can be played in draft version of GUI.
+You can use the Emulator to record some proper interaction of users with the bot. Once you add new feature to the bot you can run that previously recorded flow to check if the flow is broken. This test can be saved as a Postman collection. Also it can be played in draft version of GUI.
 
-1. Run the Emulator in the recording proxy mode:
+### Phase 1. Prepare Postman collection for regression testing
 
-```sh
-dotnet run -- Settings:ServerOperatingMode="RecordingProxy"
+1. Run the Emulator and your bot. Aim your bot at the Emulator (instead of Telegram servers). The default Emulator address is http://localhost:5134. Now the Emulator will translate the bot calls to Telegram servers, record both the calls and Telegram responses.
+
+```pwsh
+dotnet run --project .\src\TgBotApiEmulator\TgBotApiEmulator.csproj
 ```
 
-2. Run your bot and aim it to the Emulator (instead of Telegram servers). The default is http://localhost:5134. The Emulator will translate the bot calls to Telegram servers, record them and Telegram responses.
+1. Interact with the bot as usual and utilize the bot functionality which you want to cover by regression tests. Once you done, make Postman collection representing that interaction. Example:
 
-3. Interact with the bot as usual and utilize the bot functionality which should be covered by regression tests.
+```pwsh
+$Env:TOKEN = 1234567891:abcdefghijklmnopqrstuvwxyz123456789
+curl 'http://localhost:5134/test/makePostmanCollection/$Env:TOKEN' -o regressionTest.json
+```
 
-4. Make Postman collection representing the above interaction: `GET /test/makePostmanCollection/{sessionId}` (`sessionId` denotes the interaction).
+> `1234567891:abcdefghijklmnopqrstuvwxyz123456789` is an example bot token. Replace it with your token.
 
-5. Inegrate the Postman collection to your development and testing cycle, if necessary.
+### Phase 2. Run regression tests
 
-6. Play the recorded workflow in the GUI to visualize it.
+1. Stop the Emulator to retranslate bot calls to Telegram servers:
 
-![Emulator GUI](docs\screenshots\gui-general-261014.png "Title")
+```pwsh
+curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/Emulator"
+```
+
+> **Tip.** If later you want to restore the retranslation, then run: `curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/RecordingProxy"`
+
+2. Run the Postman collection:
+
+```pwsh
+postman collection run regressionTest.json --env-var "emulatorUrl=http://localhost:5134" --env-var "botToken=$Env:TOKEN"
+```
+
+3. Integrate the Postman collection to your development and testing cycle, if necessary.
+
+4. Play the recorded workflow in the GUI to visualize it.
+
+```pwsh
+npm --prefix .\src\tgbotapiemulator-webgui run dev
+```
+
+<picture>
+  <source srcset="./docs/screenshots/gui-general-261014-dark.png" media="(prefers-color-scheme: dark)">
+  <img src="./docs/screenshots/gui-general-261014.png">
+</picture>
+
+> **Tip.** Restart your bot after integration testing. Otherwise it may lose some upcoming updates.

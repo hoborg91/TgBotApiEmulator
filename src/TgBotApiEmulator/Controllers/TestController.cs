@@ -14,18 +14,17 @@ public class TestController(
     ISessionFacadeRead facade,
     IPostmanFacade postmanFacade) : Controller
 {
-    [HttpGet("makePostmanCollection/{botTokenString}")]
+    [HttpGet("makePostmanCollection/{botToken}")]
     public async Task<IActionResult> GetRecordsAsync(
-        string botTokenString,
+        [FromRoute] string botToken,
         CancellationToken cancellationToken)
     {
-        var sessionId = await GetSessionIdAsync(botTokenString, cancellationToken);
+        var sessionId = await GetSessionIdAsync(botToken, cancellationToken);
 
         var updates = await facade.GetOrderedUpdatesAsync(
             sessionId,
             cancellationToken);
         var bytes = postmanFacade.MakeUtf8Bytes(
-            botTokenString,
             updates);
         return File(bytes, MediaTypeNames.Application.Json, "hello.json");
     }
@@ -50,12 +49,12 @@ public class TestController(
         return updates;
     }
 
-    [HttpGet("bot/{botTokenString}/updates")]
+    [HttpGet("bot/{botToken}/updates")]
     public async Task<IReadOnlyCollection<Telegram.Bot.Types.Update>> GetSessionUpdatesAsync(
-        string botTokenString,
+        string botToken,
         CancellationToken cancellationToken)
     {
-        var sessionId = await GetSessionIdAsync(botTokenString, cancellationToken);
+        var sessionId = await GetSessionIdAsync(botToken, cancellationToken);
 
         var updates = await facade.GetOrderedUpdatesAsync(
             sessionId,
@@ -63,9 +62,9 @@ public class TestController(
         return updates;
     }
 
-    private async Task<TgSessionId> GetSessionIdAsync(string botTokenString, CancellationToken cancellationToken)
+    private async Task<TgSessionId> GetSessionIdAsync(string botToken, CancellationToken cancellationToken)
     {
-        var botTokenHash = HashHelper.Hash(botTokenString);
+        var botTokenHash = HashHelper.Hash(botToken);
 
         var sessions = await facade.GetSessionsAsync(cancellationToken, botTokenHash: botTokenHash);
         if (sessions.Count == 0)

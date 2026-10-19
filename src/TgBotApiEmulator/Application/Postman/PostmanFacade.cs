@@ -8,9 +8,7 @@ namespace TgBotApiEmulator.Application.Postman;
 public interface IPostmanFacade
 {
     byte[] MakeUtf8Bytes(
-        string botTokenString,
         IReadOnlyCollection<Update> updates);
-    byte[] MakeUtf8BytesDebug();
 }
 
 internal sealed class PostmanFacade(
@@ -38,101 +36,18 @@ internal sealed class PostmanFacade(
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public byte[] MakeUtf8BytesDebug()
-    {
-        var emulatorHostTemplate = "{{emulatorUrl}}";
-
-        var myCollection = new PostmanCollection(
-            new PostmanInfo(
-                "My.Test",
-                new Uri("https://schema.getpostman.com/json/collection/v2.1.0/collection.json")),
-            [
-                new PostmanSingleItem(
-                    "/start",
-                    [
-                        new PostmanSingleEvent(
-                            "test",
-                            new PostmanScript(
-                                [
-                                    "pm.test(\"Status code is 200\", function () {\r",
-                                    "    pm.response.to.have.status(200);\r",
-                                    "});",
-                                ],
-                                "text/javascript",
-                                new object())),
-                    ],
-                    new PostmanRequest(
-                        "POST",
-                        [],
-                        new PostmanRequestBody(
-                            "raw",
-                            JsonSerializer.Serialize(new { Text = "/start" }, _opts1),
-                            new PostmanRequestBodyOptions(
-                                new PostmanRequestBodyOptionsRaw("json")
-                            )),
-                        GetPostmanRequestUrlForEmulateMessage(emulatorHostTemplate)),
-                    []),
-                new PostmanSingleItem(
-                    "Expect \"Participant registered\"",
-                    [
-                        new PostmanSingleEvent(
-                            "test",
-                            new PostmanScript(
-                                [
-                                    "pm.test(\"Status code is 200\", function () {\r",
-                                    "    pm.response.to.have.status(200);\r",
-                                    "});\r",
-                                    "\r",
-                                    "pm.test(\"Your test name\", function () {\r",
-                                    "    var jsonData = pm.response.json();\r",
-                                    "    pm.expect(jsonData.result).to.eql(\"Pass\");\r",
-                                    "});\r",
-                                    "",
-                                ],
-                                "text/javascript",
-                                new object()
-                            )),
-                    ],
-                    new PostmanRequest(
-                        "POST",
-                        [],
-                        new PostmanRequestBody(
-                            "raw",
-                            JsonSerializer.Serialize(
-                                new {
-                                    MessageContainsText = "Participant registered",
-                                    TimeoutMilliseconds = 1500,
-                                },
-                                _opts1),
-                            new PostmanRequestBodyOptions(
-                                new PostmanRequestBodyOptionsRaw("json")
-                            )),
-                        GetPostmanRequestUrlForAssertBotShouldSendMessage(emulatorHostTemplate)),
-                    []),
-            ],
-            [
-                new PostmanSingleVariable(
-                    "emulatorUrl",
-                    "",
-                    "default"
-                ),
-            ]
-        );
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(
-            myCollection,
-            _optsMain);
-
-        return bytes;
-    }
-
     public byte[] MakeUtf8Bytes(
-        string botTokenString,
         IReadOnlyCollection<Update> updates)
     {
         var emulatorHostVariableName = "emulatorUrl";
         var recentOffsetVariableName = "recentOffset";
+        var botTokenVariableName = "botToken";
         var postmanItems = updates
-            .Select(u => ToPostmanItem(botTokenString, u, "{{" + emulatorHostVariableName + "}}"))
+            .Select(u => ToPostmanItem(
+                u,
+                "{{" + emulatorHostVariableName + "}}",
+                "{{" + botTokenVariableName + "}}",
+                recentOffsetVariableName))
             .ToList();
 
         var myCollection = new PostmanCollection(
@@ -148,6 +63,11 @@ internal sealed class PostmanFacade(
                 ),
                 new PostmanSingleVariable(
                     recentOffsetVariableName,
+                    "",
+                    "string"
+                ),
+                new PostmanSingleVariable(
+                    botTokenVariableName,
                     "",
                     "string"
                 ),
@@ -179,9 +99,13 @@ internal sealed class PostmanFacade(
         );
     }
 
-    private PostmanSingleItem ToPostmanItem(string botTokenString, Update update, string emulatorHostTemplate)
+    private PostmanSingleItem ToPostmanItem(
+        Update update,
+        string emulatorHostTemplate,
+        string botTokenTemplate,
+        string recentOffsetVariableName)
     {
-        if (update is { Message: { } userMessage } && (userMessage.From?.Username?.Contains("User") ?? false))
+        if (update is { Message: { } userMessage } && (userMessage.From?.IsBot == false))
         {
             return new PostmanSingleItem(
                 $"User: {userMessage.Text}",
@@ -194,7 +118,7 @@ internal sealed class PostmanFacade(
                                 "    pm.response.to.have.status(200);\r",
                                 "});",
                                 "let jsonData = pm.response.json();",
-                                "pm.collectionVariables.set(\"recentOffset\", jsonData.offset);\r",
+                                $"pm.collectionVariables.set(\"{recentOffsetVariableName}\", jsonData.offset);\r",
                             ],
                             "text/javascript",
                             new object())),
@@ -205,7 +129,7 @@ internal sealed class PostmanFacade(
                     new PostmanRequestBody(
                         "raw",
                         JsonSerializer.Serialize(
-                            new MessageRequest(botTokenString, 1, userMessage.Text ?? throw new NotSupportedException()),
+                            new MessageRequest(botTokenTemplate, 1, userMessage.Text ?? throw new NotSupportedException()),
                             _opts1),
                         new PostmanRequestBodyOptions(
                             new PostmanRequestBodyOptionsRaw("json")
@@ -214,21 +138,21 @@ internal sealed class PostmanFacade(
                 []);
         }
 
-        if (update is { Message: { } botMessage } && (botMessage.From?.Username == "bot"))
+        if (update is { Message: { } botMessage } && (botMessage.From?.IsBot == true))
         {
-            var anchor = -87398234;
+            var anchor = -87398234; // TODO Bad thing. Refactor.
             var body = JsonSerializer.Serialize(
                 new MessageAssert(
-                    SessionId: 1,
+                    BotToken: botTokenTemplate,
                     AfterOffset: anchor,
                     ChatId: 1,
                     MessageRegexPattern: botMessage.Text ?? ".*",
-                    TimeoutMilliseconds: 1500
+                    TimeoutMilliseconds: 5000
                 ),
                 _opts1);
             body = body.Replace(
                 anchor.ToString(CultureInfo.InvariantCulture),
-                "{{" + "recentOffset" + "}}");
+                "{{" + recentOffsetVariableName + "}}");
 
             return new PostmanSingleItem(
                 $"Bot should reply \"{botMessage.Text}\"",
@@ -280,17 +204,17 @@ internal sealed class PostmanFacade(
             var anchor = -87398234;
             var body = JsonSerializer.Serialize(
                 new MessageReactionAssert(
-                    SessionId: 1,
+                    BotToken: botTokenTemplate,
                     AfterOffset: anchor,
                     ChatId: 1,
                     MessageId: anchor,
                     ReactionType: emojis.Single(),
-                    TimeoutMilliseconds: 1500
+                    TimeoutMilliseconds: 5000
                 ),
                 _opts1);
             body = body.Replace(
                 anchor.ToString(CultureInfo.InvariantCulture),
-                "{{" + "recentOffset" + "}}");
+                "{{" + recentOffsetVariableName + "}}");
 
             return new PostmanSingleItem(
                 $"Bot should set reaction",

@@ -14,6 +14,8 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
 
     public DbSet<Settings>? Settings { get; set; }
 
+    public DbSet<BotOperatingMode>? BotOperatingModes { get; set; }
+
     public DbSet<TgSession>? TgSessions { get; set; }
 
     public DbSet<TgSessionRecord>? TgSessionRawRecords { get; set; }
@@ -26,11 +28,22 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
         modelBuilder.Entity<TgSessionUpdateRecord>();
 
         modelBuilder
+            .Entity<TgSessionUpdateRecord>()
+            .HasIndex(e => e.UpdateId);
+
+        modelBuilder
             .Entity<TgSessionRecord>()
             .HasDiscriminator<int>("Type")
             .HasValue<TgSessionBotActionRecord>(1)
             .HasValue<TgSessionServerResponseRecord>(2)
             .HasValue<TgSessionUpdateRecord>(3);
+
+        modelBuilder
+            .Entity<TgSessionRecord>()
+            .HasOne(e => e.Parent)
+            .WithMany(e => e.Children)
+            .HasForeignKey(e => e.ParentId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder
             .Entity<TgSessionBotActionRecord>()
@@ -40,15 +53,30 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
                 v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, _jsonSerializerOptions));
 
         modelBuilder.Entity<TgSessionRecord>().Property(e => e.Id).ValueGeneratedOnAdd();
-        modelBuilder.Entity<TgSessionUpdateRecord>().Property(e => e.Offset);//.ValueGeneratedOnAdd();
+        // modelBuilder.Entity<TgSessionUpdateRecord>().Property(e => e.Offset);//.ValueGeneratedOnAdd();
 
         modelBuilder.Entity<TgSession>().Property(e => e.Id).ValueGeneratedOnAdd();
         modelBuilder.Entity<TgSession>().HasIndex(e => e.BotTokenHash).IsUnique();
 
         modelBuilder.Entity<Settings>().Property(e => e.Id).ValueGeneratedOnAdd();
 
+        modelBuilder.Entity<BotOperatingMode>().HasKey(e => e.BotTokenHash);
+
         modelBuilder
-            .HasDbFunction(() => StronglyTypedIdValue.InnerValue(default))
+            .HasDbFunction(() => StronglyTypedIdValue.InnerValue(default(TgSessionRecordId)))
+            .HasTranslation(args => new SqlFunctionExpression(
+                functionName: "",
+                arguments: args,
+                nullable: false,
+                argumentsPropagateNullability: [false],
+                type: typeof(long),
+                typeMapping: null
+            ))
+            .HasParameter("value")
+            .HasStoreType("integer");
+
+        modelBuilder
+            .HasDbFunction(() => StronglyTypedIdValue.InnerValue(default(UpdateOffset)))
             .HasTranslation(args => new SqlFunctionExpression(
                 functionName: "",
                 arguments: args,
@@ -64,19 +92,20 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
-        configurationBuilder.Properties<UpdateOffset>().HaveConversion<UpdateOffsetConverter>();
+        // configurationBuilder.Properties<UpdateOffset>().HaveConversion<UpdateOffsetConverter>();
         configurationBuilder.Properties<TgSessionId>().HaveConversion<TgSessionIdConverter>();
         configurationBuilder.Properties<SettingsId>().HaveConversion<SettingsIdConverter>();
         configurationBuilder.Properties<TgSessionRecordId>().HaveConversion<TgSessionRecordIdConverter>();
+        configurationBuilder.Properties<UpdateOffset>().HaveConversion<UpdateOffsetConverter>();
     }
 
-    private class UpdateOffsetConverter : ValueConverter<UpdateOffset, int>
-    {
-        public UpdateOffsetConverter()
-            : base(v => v.Offset, v => new(v))
-        {
-        }
-    }
+    // private class UpdateOffsetConverter : ValueConverter<UpdateOffset, int>
+    // {
+    //     public UpdateOffsetConverter()
+    //         : base(v => v.Offset, v => new(v))
+    //     {
+    //     }
+    // }
 
     private class TgSessionIdConverter : ValueConverter<TgSessionId, long>
     {
@@ -97,6 +126,14 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
     private class TgSessionRecordIdConverter : ValueConverter<TgSessionRecordId, long>
     {
         public TgSessionRecordIdConverter()
+            : base(v => v.Value, v => new(v))
+        {
+        }
+    }
+
+    private class UpdateOffsetConverter : ValueConverter<UpdateOffset, long>
+    {
+        public UpdateOffsetConverter()
             : base(v => v.Value, v => new(v))
         {
         }

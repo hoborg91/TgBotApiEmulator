@@ -137,7 +137,7 @@ export const ChatComponent: React.FC<ChatProps> = ({
   };
 
   return (
-    <div className="relative flex flex-col bg-green-100" style={{ height: "50vh" }}>
+    <div className="relative flex flex-col bg-green-100 dark:bg-gray-900" style={{ height: "50vh" }}>
       <div className="flex-shrink-0">
         <ChatHeader contact={chat.contact} onBack={onBack} />
       </div>
@@ -182,7 +182,7 @@ export const ChatComponent: React.FC<ChatProps> = ({
                       size="sm"
                     />
                   </div>
-                  <div className="bg-gray-200 text-gray-800 px-4 py-2 rounded-2xl rounded-bl-none">
+                  <div className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-2xl rounded-bl-none">
                     <div className="flex space-x-1">
                       <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
                       <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>

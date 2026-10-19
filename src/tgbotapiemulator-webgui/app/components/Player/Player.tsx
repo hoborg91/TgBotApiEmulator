@@ -18,20 +18,22 @@ export default function Player({ updates }: { updates: Req<components["schemas"]
   const dt = new Date(2025, 1, 15, 8, 0, 0);
 
   if (currentOffset !== null) {
-    for (let i = 0; i <= currentOffset; i++) {
-      let u = updates[i];
+    for (let i = 0; i < currentOffset; i++) {
+      const u = updates[i];
 
       if (u === undefined || u === null) {
         continue;
       }
 
-      let updateWrapper = check(u);
+      const updateWrapper = check(u);
       if (updateWrapper.message) {
         const msg = updateWrapper.message;
+        const isBot = msg.from.is_bot ?? false;
         messageModels.push({
           id: msg.message_id + "",
           text: msg.text || "",
-          sender: msg.from.username === "Hamlet" ? 'user' : 'contact',
+          sender: isBot ? 'contact' : 'user',
+          isBot: isBot,
           from: {
             id: msg.from.id + "",
             name: tgRenderSenderName(msg),

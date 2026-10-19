@@ -4,31 +4,33 @@ namespace TgBotApiEmulator.Application;
 
 public interface IUpdateReader
 {
-    Task<(Telegram.Bot.Types.Update? Update, TimeSpan Elapsed, UpdateOffset Offset)> WaitForUpdateAsync(
+    Task<(Telegram.Bot.Types.Update? Update, TimeSpan Elapsed, TgSessionRecordId Offset)> WaitForUpdateAsync(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId offset,
         Predicate<Telegram.Bot.Types.Update> filter,
         TimeSpan timeout,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool excludeProducedByBot = false);
 }
 
 internal sealed class UpdateReader(
-    ISessionFacadeRead recordingProxyFacadeRead,
+    ISessionFacadeRead sessionFacadeRead,
     IClock clock) : IUpdateReader
 {
     private readonly TimeSpan _step = TimeSpan.FromMilliseconds(100);
 
-    public async Task<(Telegram.Bot.Types.Update? Update, TimeSpan Elapsed, UpdateOffset Offset)> WaitForUpdateAsync(
+    public async Task<(Telegram.Bot.Types.Update? Update, TimeSpan Elapsed, TgSessionRecordId Offset)> WaitForUpdateAsync(
         TgSessionId sessionId,
-        UpdateOffset afterOffset,
+        TgSessionRecordId offset,
         Predicate<Telegram.Bot.Types.Update> filter,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool excludeProducedByBot = false)
     {
-        if (afterOffset.Offset < 0)
+        if (offset.Value < 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(afterOffset),
+                nameof(offset),
                 "Negative offset is not supported for now.");
         }
 
@@ -40,36 +42,44 @@ internal sealed class UpdateReader(
         }
 
         var waitingMilliseconds = 0.0;
-        var commitedOffset = afterOffset;
-        // var observedMessages = new List<(int Step, UpdateOffset CommitedOffset, TgSessionMessage Message)>();
-        // var step = 0;
+
+        // Telegram semantics: the offset is the identifier of the first update to be returned,
+        // i.e. the border is INCLUSIVE. The reader looks for updates with an ID >= offset.
+        var nextOffset = offset;
+        var lastObservedOffset = offset;
 
         var sw = clock.StartStopwatch();
         while (true)
         {
-            // step++;
-            var udpates = await recordingProxyFacadeRead.GetOrderedUpdatesAsync(
+            var updates = await sessionFacadeRead.GetOrderedUpdatesAsync(
                 sessionId,
                 cancellationToken,
-                afterOffset: commitedOffset.Offset >= 0 ? commitedOffset : null,
-                null);
-            var offset = commitedOffset;
-            foreach (var update in udpates)
+                fromIncluding: nextOffset,
+                null,
+                excludeProducedByBot);
+            var observedOffset = lastObservedOffset;
+            foreach (var update in updates)
             {
-                offset = new UpdateOffset(update.Id);// update.Offset;
-                                                     // observedMessages.Add((step, commitedOffset, message));
+                // update.Id is the Emulator queue position (the record primary key).
+                observedOffset = new TgSessionRecordId(update.Id);
+                lastObservedOffset = observedOffset;
 
                 if (filter(update))
                 {
-                    return (update, TimeSpan.FromMilliseconds(waitingMilliseconds), offset);
+                    return (update, TimeSpan.FromMilliseconds(waitingMilliseconds), observedOffset);
                 }
             }
-            commitedOffset = offset;
+
+            // Advance the inclusive border past the observed updates so they are not fetched again.
+            if (updates.Count > 0)
+            {
+                nextOffset = new TgSessionRecordId(lastObservedOffset.Value + 1);
+            }
 
             var elapsed = sw.Elapsed;
             if (elapsed > timeout)
             {
-                return (null, elapsed, offset);
+                return (null, elapsed, observedOffset);
             }
 
             await clock.Delay(_step, cancellationToken);

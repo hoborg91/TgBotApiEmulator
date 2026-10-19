@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SQLite" Version="10.0.12" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
     <PackageReference Include="Telegram.Bot" Version="22.10.3.3" />

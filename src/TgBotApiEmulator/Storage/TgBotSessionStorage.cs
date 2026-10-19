@@ -1,4 +1,6 @@
-﻿using System.Linq.Expressions;
+﻿using System.Linq;
+using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using TgBotApiEmulator.Contracts;
 using TgBotApiEmulator.Storage.Contracts;
 using TgBotApiEmulator.Storage.Contracts.Entities;
@@ -7,7 +9,8 @@ using TgBotApiEmulator.Utilities;
 namespace TgBotApiEmulator.Storage;
 
 internal sealed class TgBotSessionStorage(
-    TgBotSessionContext dbContext) : ITgBotSessionStorage
+    TgBotSessionContext dbContext,
+    TimeProvider timeProvider) : ITgBotSessionStorage
 {
     public Task<IEnumerable<TgSession>> GetTgSessionsAsync(
         TgSessionId? tgSessionId,
@@ -110,10 +113,13 @@ internal sealed class TgBotSessionStorage(
         string nonUniqueName,
         string? botTokenHash = null)
     {
+        var now = timeProvider.GetUtcNow().DateTime;
         var session = new TgSession
         {
             NonUniqueName = nonUniqueName,
             BotTokenHash = botTokenHash,
+            DtmCreated = now,
+            DtmLastUpdated = now,
         };
 
         (dbContext.TgSessions
@@ -144,27 +150,78 @@ internal sealed class TgBotSessionStorage(
     public Task<IEnumerable<TgSessionUpdateRecord>> GetOrderedUpdatesAsync(
         TgSessionId sessionId,
         CancellationToken cancellationToken,
-        UpdateOffset? afterOffset = null,
-        string? updateType = null)
+        TgSessionRecordId? fromIncluding = null,
+        string? updateType = null,
+        bool excludeProducedByBot = false)
     {
-        var query = (dbContext.TgSessionRawRecords
+        var records = (dbContext.TgSessionRawRecords
             ?? throw new Exception())
             .OfType<TgSessionUpdateRecord>()
             .Where(u => u.Session.Id == sessionId);
 
-        if (afterOffset.HasValue)
+        if (fromIncluding.HasValue)
         {
-            query = query.Where(r => r.Offset.InnerValue() > afterOffset.Value.Offset);
+            // Updates are identified by their queue position (the record primary key).
+            // This works both for real Telegram updates and for updates produced locally.
+            var from = fromIncluding.Value.Value;
+            records = records.Where(r => StronglyTypedIdValue.InnerValue(r.Id) >= from);
         }
 
         if (updateType != null)
         {
-            query = query.Where(r => r.UpdateType == updateType);
+            records = records.Where(r => r.UpdateType == updateType);
         }
 
-        return Task.FromResult(query
-            .OrderBy(r => r.Offset)
+        if (excludeProducedByBot)
+        {
+            records = records.Where(r => !r.IsProducedByBot);
+        }
+
+        return Task.FromResult(records
+            .OrderBy(r => StronglyTypedIdValue.InnerValue(r.Id))
             .AsEnumerable());
+    }
+
+    public async Task<TgSessionRecordId?> FindLastReceivedUpdateRecordIdAsync(
+        TgSessionId sessionId,
+        UpdateOffset botOffset,
+        CancellationToken cancellationToken)
+    {
+        if (botOffset.Value <= 0)
+        {
+            return null;
+        }
+
+        var updates = (dbContext.TgSessionRawRecords
+            ?? throw new Exception())
+            .OfType<TgSessionUpdateRecord>()
+            .Where(u => u.Session.Id == sessionId);
+
+        // The offset was produced by the Emulator if it points directly at a record
+        // without a Telegram update ID (locally produced updates use their primary key).
+        var previousQueuePosition = botOffset.Value - 1;
+
+        var exactRecord = await updates
+            .FirstOrDefaultAsync(u => StronglyTypedIdValue.InnerValue(u.Id) == previousQueuePosition, cancellationToken);
+
+        if (exactRecord is { UpdateId: null, IsProducedByBot: false })
+        {
+            return exactRecord.Id;
+        }
+
+        // Otherwise the offset belongs to the Telegram update ID space. Find the last
+        // update whose Telegram ID is lower than the offset (the first one to return).
+        var lastTelegramUpdate = await updates
+            .Where(u => u.UpdateId.HasValue && StronglyTypedIdValue.InnerValue(u.UpdateId.Value) < botOffset.Value)
+            .OrderByDescending(u => StronglyTypedIdValue.InnerValue(u.UpdateId!.Value))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (lastTelegramUpdate != null)
+        {
+            return lastTelegramUpdate.Id;
+        }
+
+        return exactRecord?.Id;
     }
 
     public Task<TgSessionRecord?> GetMostRecentRecordAsync(
@@ -205,7 +262,7 @@ internal sealed class TgBotSessionStorage(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task RecordTgServerResponseAsync(
+    public async Task<TgSessionRecordId> RecordTgServerResponseAsync(
         TgSessionId tgSessionId,
         DateTime timestamp,
         string statusCode,
@@ -214,17 +271,19 @@ internal sealed class TgBotSessionStorage(
     {
         var session = GetTgSessionByIdInternal(tgSessionId);
 
-        await dbContext.AddAsync(
-            new TgSessionServerResponseRecord
-            {
-                Session = session,
-                Timestamp = timestamp,
-                StatusCode = statusCode,
-                EscapedContent = content,
-            },
-            cancellationToken);
+        var record = new TgSessionServerResponseRecord
+        {
+            Session = session,
+            Timestamp = timestamp,
+            StatusCode = statusCode,
+            EscapedContent = content,
+        };
+
+        await dbContext.AddAsync(record, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        return record.Id;
     }
 
     public async Task<UpdateOffset> RecordUpdateAsync(
@@ -232,7 +291,9 @@ internal sealed class TgBotSessionStorage(
         DateTime timestamp,
         string content,
         string updateType,
-        int offset,
+        UpdateOffset? updateId,
+        TgSessionRecordId? parentId,
+        bool isProducedByBot,
         CancellationToken cancellationToken)
     {
         var session = GetTgSessionByIdInternal(tgSessionId);
@@ -243,7 +304,9 @@ internal sealed class TgBotSessionStorage(
             Timestamp = timestamp,
             EscapedContent = content,
             UpdateType = updateType,
-            Offset = new(offset),
+            UpdateId = updateId,
+            IsProducedByBot = isProducedByBot,
+            ParentId = parentId,
         };
 
         await (dbContext.TgSessionRawRecords
@@ -253,7 +316,36 @@ internal sealed class TgBotSessionStorage(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return record.Offset;
+        // Locally produced updates have no Telegram ID; their queue identity is the
+        // record primary key.
+        return updateId ?? new UpdateOffset(record.Id.Value);
+    }
+
+    public Task<TgSessionRecordId?> GetLastReceivedUpdateRecordIdAsync(
+        TgSessionId tgSessionId,
+        CancellationToken cancellationToken)
+    {
+        var session = GetTgSessionByIdInternal(tgSessionId);
+
+        return Task.FromResult(session.LastReceivedUpdateRecordId);
+    }
+
+    public Task SetLastReceivedUpdateRecordIdAsync(
+        TgSessionId tgSessionId,
+        TgSessionRecordId recordId,
+        CancellationToken cancellationToken)
+    {
+        var session = GetTgSessionByIdInternal(tgSessionId);
+
+        // Never move the cursor backwards: the bot cannot receive an older update
+        // after a newer one has already been returned.
+        if (!(session.LastReceivedUpdateRecordId?.Value >= recordId.Value))
+        {
+            session.LastReceivedUpdateRecordId = recordId;
+            dbContext.SaveChanges();
+        }
+
+        return Task.CompletedTask;
     }
 
     private TgSession GetTgSessionByIdInternal(TgSessionId tgSessionId)

@@ -10,15 +10,15 @@ namespace TgBotApiEmulator.Controllers;
 [Route("")]
 public sealed class BotController(
     IRecordingProxyFacadeWrite facadeWrite,
+    ISessionFacadeRead facadeRead,
     IUpdateReader updateReader) : ControllerBase
 {
-    [HttpPost("{botTokenString}/getMe")]
+    [HttpPost("{botPrefixedToken}/getMe")]
     public async Task<ApiResponse<User>> GetMeAsync(
 #pragma warning disable IDE0060 // Remove unused parameter
-        string botTokenString)
+        string botPrefixedToken)
 #pragma warning restore IDE0060 // Remove unused parameter
     {
-        Console.WriteLine($"getMe...");
         await Task.CompletedTask;
 
         return new ApiResponse<User>
@@ -34,14 +34,15 @@ public sealed class BotController(
         };
     }
 
-    [HttpPost("{botTokenString}/deleteWebhook")]
+    [HttpPost("{botPrefixedToken}/deleteWebhook")]
     public async Task<ApiResponse<bool>> DeleteWebhookAsync(
 #pragma warning disable IDE0060 // Remove unused parameter
-        string botTokenString,
+        string botPrefixedToken,
 #pragma warning restore IDE0060 // Remove unused parameter
+#pragma warning disable IDE0060 // Remove unused parameter
         bool? drop_pending_updates)
+#pragma warning restore IDE0060 // Remove unused parameter
     {
-        Console.WriteLine($"deleteWebhook({drop_pending_updates})...");
         await Task.CompletedTask;
 
         return new ApiResponse<bool>
@@ -51,50 +52,71 @@ public sealed class BotController(
         };
     }
 
-    private async Task<TgSessionId> GetSessionIdAsync(string botTokenString, CancellationToken cancellationToken)
+    private async Task<TgSessionId> GetSessionIdAsync(string botPrefixedToken, CancellationToken cancellationToken)
     {
-        var botTokenHash = HashHelper.Hash(botTokenString);
+        var botTokenHash = HashHelper.Hash(botPrefixedToken[3..]);
         var sessionId = (await facadeWrite.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
 
         return sessionId;
     }
 
-    [HttpPost("{botTokenString}/getUpdates")]
+    [HttpPost("{botPrefixedToken}/getUpdates")]
     public async Task<ApiResponse<Update[]>> GetUpdatesAsync(
-        string botTokenString,
+        string botPrefixedToken,
         Telegram.Bot.Requests.GetUpdatesRequest request,
         CancellationToken cancellationToken)
     {
-        var updTypeStr = request.AllowedUpdates == null
-            ? "null"
-            : string.Join(", ", request.AllowedUpdates.Select(au => au.ToString()));
-        Console.WriteLine($"getUpdates({request.Offset}, {request.Limit}, {request.Timeout}, {updTypeStr})...");
+        var sessionId = await GetSessionIdAsync(botPrefixedToken, cancellationToken);
 
-        Update[]? result = [];
-        if (request.Offset >= 0)
-        {
-            var timeoutMilliseconds = 0;
-            if (request.Timeout.HasValue && request.Timeout.Value > 0)
-            {
-                timeoutMilliseconds = request.Timeout.Value * 900;
-            }
+        // The bot's offset may be either a Telegram update ID (after recording proxy mode)
+        // or an Emulator queue position. Resolve it to the last record the bot has received.
+        // When the bot passes no offset (for example, after a restart), continue from the
+        // persisted queue cursor.
+        var lastReceivedRecordId = await facadeWrite.GetLastReceivedUpdateRecordIdAsync(
+            sessionId,
+            cancellationToken);
 
-            var sessionId = await GetSessionIdAsync(botTokenString, cancellationToken);
-
-            var (update, elapsed, offset) = await updateReader.WaitForUpdateAsync(
+        var startAfterRecordId = request.Offset is { } o && o > 0
+            ? await facadeRead.FindLastReceivedUpdateRecordIdAsync(
                 sessionId,
-                new Contracts.UpdateOffset(request.Offset.Value),
-                _ => true,
-                TimeSpan.FromMilliseconds(timeoutMilliseconds),
-                cancellationToken);
+                new UpdateOffset(o),
+                cancellationToken)
+            : null;
 
-            if (update != null)
-            {
-                result = [update];
-            }
+        startAfterRecordId ??= lastReceivedRecordId;
+
+        // The reader's border is inclusive, so the first candidate is the record
+        // immediately after the last one the bot has already received.
+        var effectiveOffset = new TgSessionRecordId((startAfterRecordId?.Value ?? 0) + 1);
+
+        var timeoutMilliseconds = 0;
+        if (request.Timeout.HasValue && request.Timeout.Value > 0)
+        {
+            timeoutMilliseconds = request.Timeout.Value * 900;
         }
 
-        Console.WriteLine($"getUpdates returns, result: " + (result == null ? "null" : result.Length + " updates"));
+        var (update, elapsed, offset) = await updateReader.WaitForUpdateAsync(
+            sessionId,
+            effectiveOffset,
+            _ => true,
+            TimeSpan.FromMilliseconds(timeoutMilliseconds),
+            cancellationToken,
+            excludeProducedByBot: true);
+
+        Update[]? result = [];
+        if (update != null)
+        {
+            result = [update];
+
+            // Remember the queue position of the returned update so that after a restart
+            // the bot does not receive all updates again when calling getUpdates
+            // without an offset.
+            await facadeWrite.SetLastReceivedUpdateRecordIdAsync(
+                sessionId,
+                new TgSessionRecordId(update.Id),
+                cancellationToken);
+        }
+
         return new ApiResponse<Update[]>
         {
             Ok = true,
@@ -102,16 +124,12 @@ public sealed class BotController(
         };
     }
 
-    [HttpPost("{botTokenString}/sendMessage")]
+    [HttpPost("{botPrefixedToken}/sendMessage")]
     public async Task<ApiResponse<Message>> SendMessageAsync(
-#pragma warning disable IDE0060 // Remove unused parameter
-        string botTokenString,
-#pragma warning restore IDE0060 // Remove unused parameter
+        string botPrefixedToken,
         Telegram.Bot.Requests.SendMessageRequest request,
         CancellationToken cancellationToken)
     {
-        Console.WriteLine($"sendMessage({request.Text})");
-
         if (request.ChatId.Identifier == null)
         {
             throw new ArgumentException(
@@ -136,7 +154,7 @@ public sealed class BotController(
             },
         };
 
-        var sessionId = await GetSessionIdAsync(botTokenString, cancellationToken);
+        var sessionId = await GetSessionIdAsync(botPrefixedToken, cancellationToken);
 
         await facadeWrite.RecordUpdateAsync(
             sessionId,
@@ -144,7 +162,8 @@ public sealed class BotController(
             {
                 Message = msg,
             },
-            cancellationToken);
+            cancellationToken,
+            isProducedByBot: true);
 
         return new ApiResponse<Message>
         {
@@ -153,18 +172,15 @@ public sealed class BotController(
         };
     }
 
-    [HttpPost("{botTokenString}/setMessageReaction")]
+    [HttpPost("{botPrefixedToken}/setMessageReaction")]
     public async Task<ApiResponse<bool>> SetMessageReaction(
-#pragma warning disable IDE0060 // Remove unused parameter
-        string botTokenString,
-#pragma warning restore IDE0060 // Remove unused parameter
+        string botPrefixedToken,
         Telegram.Bot.Requests.SetMessageReactionRequest request,
         CancellationToken cancellationToken)
     {
         var reactionsString = request.Reaction == null
             ? string.Empty
             : string.Join(", ", request.Reaction.Select(r => r.ToString()));
-        Console.WriteLine($"setMessageReaction({reactionsString})");
 
         if (request.ChatId.Identifier == null)
         {
@@ -173,7 +189,7 @@ public sealed class BotController(
                 nameof(request));
         }
 
-        var sessionId = await GetSessionIdAsync(botTokenString, cancellationToken);
+        var sessionId = await GetSessionIdAsync(botPrefixedToken, cancellationToken);
 
         var updateId = await facadeWrite.RecordUpdateAsync(
             sessionId,
@@ -197,7 +213,8 @@ public sealed class BotController(
                     },
                 }
             },
-            cancellationToken);
+            cancellationToken,
+            isProducedByBot: true);
 
         return new ApiResponse<bool>
         {
