@@ -36,6 +36,7 @@ builder.Services.AddScoped<IUpdateReader, UpdateReader>();
 builder.Services.AddScoped<IEndpointRegistry, EndpointRegistry>();
 builder.Services.AddScoped<IPostmanFacade, PostmanFacade>();
 
+builder.Services.AddSingleton<IRetranslatedRequestManager, RetranslatedRequestManager>();
 builder.Services.AddScoped<IRecordingMiddlewareUtilities, RecordingMiddlewareUtilities>();
 builder.Services.AddScoped<RecordingProxyMiddleware>();
 

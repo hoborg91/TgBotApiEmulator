@@ -8,7 +8,8 @@ namespace TgBotApiEmulator.Middleware;
 internal sealed class RecordingProxyMiddleware(
     IRecordingMiddlewareUtilities utilities,
     IRecordingProxyFacadeWrite facade,
-    IOperatingModeFacade operatingModeFacade) : IMiddleware
+    IOperatingModeFacade operatingModeFacade,
+    IRetranslatedRequestManager abortManager) : IMiddleware
 {
     public async Task InvokeAsync(
         HttpContext context,
@@ -32,9 +33,12 @@ internal sealed class RecordingProxyMiddleware(
             return;
         }
 
+        var botTokenHash = HashHelper.Hash(botToken!);
+
+        using var registration = abortManager.RegisterRequest(botTokenHash);
+
         var tgBotApiMethod = GetTgBotApiMethod(path);
 
-        var botTokenHash = HashHelper.Hash(botToken!);
         var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
 
         await facade.RecordBotRequestAsync(
@@ -49,14 +53,14 @@ internal sealed class RecordingProxyMiddleware(
             context.Request.Path,
             context.Request.QueryString.ToString(),
             context.Request.Headers,
-            body
-        );
+            body);
 
         var httpClient = context.RequestServices
             .GetRequiredService<IHttpClientFactory>()
             .CreateClient();
 
-        var result = await httpClient.SendAsync(httpRequestMessage, cancellationToken);
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, registration.Token);
+        var result = await httpClient.SendAsync(httpRequestMessage, linkedCts.Token);
         var content = await result.Content.ReadAsStringAsync(cancellationToken);
 
         await facade.RecordTgServerResponseAsync(

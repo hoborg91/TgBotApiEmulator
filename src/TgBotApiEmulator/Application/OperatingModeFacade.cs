@@ -17,7 +17,8 @@ public interface IOperatingModeFacade
 }
 
 internal sealed class OperatingModeFacade(
-    IBotOperatingModeStorage storage) : IOperatingModeFacade
+    IBotOperatingModeStorage storage,
+    IRetranslatedRequestManager abortManager) : IOperatingModeFacade
 {
     public async Task<OperatingMode> GetOperatingModeAsync(
         string botToken,
@@ -37,5 +38,14 @@ internal sealed class OperatingModeFacade(
         var botTokenHash = HashHelper.Hash(botToken);
 
         await storage.SetOperatingModeAsync(botTokenHash, operatingMode, cancellationToken);
+
+        // Abort any in-flight proxied requests for this bot token so that a pending
+        // getUpdates long-poll against Telegram servers is cancelled. The bot's next
+        // getUpdates will then hit BotController (Emulator mode) and read updates
+        // from the Emulator database instead.
+        if (operatingMode == OperatingMode.Emulator)
+        {
+            abortManager.AbortPendingRequests(botTokenHash);
+        }
     }
 }

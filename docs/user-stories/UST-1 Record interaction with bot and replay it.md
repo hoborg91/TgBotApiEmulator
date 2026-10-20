@@ -6,6 +6,10 @@
 
 **Postman collection** - collection representing conversation (interaction) of the user and the bot during the use case.
 
+**Recording proxy mode (request retranslation on)** - type of the Emulator work when requests from the bot are sent to Telegram servers. Both that requests and responses to them are saved to the Emulator database. One can interact with the bot in a usual way (via common Telegram client).
+
+**Emulator mode (request retranslation off)** - type of the Emulator work when it acts as a terminal agent answering the bot requests. The bot receives updates from the Emulator database. One can interact with the bot using the Emulator `/emulate` methods.
+
 ## Notes
 
 1. The following instructions contain several CLI commands. All of them are to be run from the root of the repository.
