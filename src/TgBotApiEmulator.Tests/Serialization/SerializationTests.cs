@@ -37,7 +37,7 @@ public class SerializationTests
     [Test]
     public void DeserizalizeUpdate_DoesNotFail()
     {
-        var serialized = File.ReadAllText("Serialization\\UpdateWithMessageReaction.json");
+        var serialized = File.ReadAllText("Serialization/UpdateWithMessageReaction.json");
 
         _ = JsonSerializer.Deserialize<Update>(serialized, _jsonSerializerOptions);
     }
@@ -45,7 +45,7 @@ public class SerializationTests
     [Test]
     public void DeserizalizeApiResponseUpdate_DoesNotFail()
     {
-        var serialized = File.ReadAllText("Serialization\\ApiResponseWithUpdateWithMessageReaction.json");
+        var serialized = File.ReadAllText("Serialization/ApiResponseWithUpdateWithMessageReaction.json");
 
         _ = JsonSerializer.Deserialize<ApiResponse<Update[]>>(serialized, _jsonSerializerOptions);
     }
