@@ -1,5 +1,7 @@
 # Telegram Bot API Emulator
 
+[![Release build](https://github.com/hoborg91/TgBotApiEmulator/actions/workflows/release.yml/badge.svg)](https://github.com/hoborg91/TgBotApiEmulator/actions/workflows/release.yml)
+
 This is a framework for Telegram bot testing. It allows to decouple the part of development and testing cycle from Telegram infrastructure.
 
 > ⚠ For now only `getUpdates` technique of bot interaction is supported.

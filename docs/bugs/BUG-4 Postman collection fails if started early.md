@@ -33,4 +33,5 @@ Switching recording proxy mode off should somehow break the awaiting of the answ
 
 ## Affected use cases
 
-* USC-1.1 Record conversation with bot and replay it as Postman collection
+- UST-1 Record interaction with bot and replay it
+    - USC-1.1 Replay via Postman collection

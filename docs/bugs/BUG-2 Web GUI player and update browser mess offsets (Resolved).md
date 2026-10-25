@@ -48,4 +48,5 @@ Use "artifical" array indices (like in Player.tsx) to indicate update offset eve
 
 ## Affected use cases
 
-* USC-1.2. Record conversation with bot and view it in web GUI.
+- UST-1 Record interaction with bot and replay it
+    - USC-1.2 Replay via web GUI

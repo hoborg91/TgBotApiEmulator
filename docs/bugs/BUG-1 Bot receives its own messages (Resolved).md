@@ -33,4 +33,5 @@ There should be a new property of update which can tell wether this update was p
 
 ## Affected use cases
 
-* USC-1.1 Record conversation with bot and replay it as Postman collection.
+- UST-1 Record interaction with bot and replay it
+    - USC-1.1 Replay via Postman collection
