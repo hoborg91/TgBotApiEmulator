@@ -49,6 +49,22 @@ builder.Services
         new JsonSerializerConfig().Configure(options);
     });
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+if (allowedOrigins.Length == 0)
+{
+    allowedOrigins = ["http://localhost:3000"];
+}
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowWebGui", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddSwaggerGen(options =>
 {
     // Without UseAllOfForInheritance either the generated schema does not contain
@@ -76,6 +92,8 @@ var dbContext = startupScope.ServiceProvider.GetRequiredService<TgBotSessionCont
 await dbContext.Database.EnsureCreatedAsync(startupCts.Token);
 
 app.UseMiddleware<RecordingProxyMiddleware>();
+
+app.UseCors("AllowWebGui");
 
 app.MapControllers();
 

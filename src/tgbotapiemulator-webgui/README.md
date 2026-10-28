@@ -1,9 +1,9 @@
 ## How to update types
 
-Given the server is running at http://localhost:5134 and thus OpenAPI specification is available at http://localhost:5134/swagger/v1/swagger.json, one should run the following script.
+Given the server is running at http://localhost:5134 and thus OpenAPI specification is available at http://localhost:5134/swagger/v1/swagger.json, one should run the following script from the repository root.
 
 ```bash
-npx openapi-typescript http://localhost:5134/swagger/v1/swagger.json -o ./app/contracts/emulator-api.g.d.ts
+npx openapi-typescript http://localhost:5134/swagger/v1/swagger.json -o ./src/tgbotapiemulator-webgui/app/contracts/emulator-api.g.d.ts
 ```
 
 # README generated with the application

@@ -1,108 +1,129 @@
 "use client"
 
-import { Dispatch, SetStateAction } from "react";
-import type { components } from "../../contracts/emulator-api.g";
-import { Req } from "../../utils/types/Req";
-import { Button } from "@/components/ui/button";
-import { Item } from "@/components/ui/item";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import React from "react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { createPositiveNumber, PositiveNumber } from "../../utils/types/opaqueTypes";
-import { Separator } from "@/components/ui/separator";
-import { isEmoji, tgRenderActorName, tgRenderSenderName } from "@/app/utils/tg/all";
+import { useCallback } from "react"
+import type { components } from "@/app/contracts/emulator-api.g"
+import { tgRenderUserName } from "@/app/utils/tg/all"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
-interface ChatProps {
-  updates: Req<components["schemas"]["Update"]>[];
-  currentOffset: number | null;
-  setCurrentOffset: Dispatch<SetStateAction<number | null>>,
+type Update = components["schemas"]["Update"]
+
+interface UpdateBrowserProps {
+  updates: Update[]
+  offset: number | null
+  onChangeOffset: (next: number | null) => void
 }
 
-export default function UpdateBrowser({ updates, currentOffset: offset, setCurrentOffset: setOffset }: ChatProps) {
-  return (
-    <div>
-        <div>
-            <Item>{offset === null ? "No offset selected" : `Offset ${offset}`}</Item>
-            <Button variant="outline" onClick={() => setOffset(prev => prev === null || prev <= 1 ? null : prev - 1)}>Backward</Button>
-            <Button variant="outline" onClick={() => setOffset(prev => prev === null ? 1 : (prev < updates.length ? prev + 1 : prev))}>Forward</Button>
-        </div>
-        <ScrollArea className="h-72 w-48 rounded-md border">
-        <div className="p-4">
-            <HistoryItem itemOffset={null}>Start</HistoryItem>
-            <Separator className="my-2" />
-            {updates.map((update, index) => (
-            <React.Fragment key={update.update_id}>
-                <HistoryItem itemOffset={index + 1}>{ToLabel(update)}</HistoryItem>
-                <Separator className="my-2" />
-            </React.Fragment>
-            ))}
-        </div>
-        </ScrollArea>
-    </div>
-  );
-
-  function HistoryItem({ itemOffset, children } : { itemOffset: number | null, children: React.ReactNode }) {
-    return <div className="flex items-center gap-3">
-      <Checkbox
-        id={`update-checkbox-${itemOffset}`}
-        checked={itemOffset == null ? true : offset !== null && offset >= itemOffset}
-        onClick={() => setOffset(itemOffset)} />
-      <Label
-        htmlFor={`update-checkbox-${itemOffset}`}
-        className="font-normal">{children}</Label>
-    </div>;
+function updateSender(update: Update): string {
+  if (update.message?.from) {
+    return tgRenderUserName(update.message.from)
   }
+  if (update.message_reaction?.user) {
+    return tgRenderUserName(update.message_reaction.user)
+  }
+  return "Unknown sender"
 }
 
-function Trim(text: string, symbolCount: PositiveNumber) {
-    if (text.length <= symbolCount) {
-        return text;
-    }
-
-    let length = symbolCount;
-    while (length > 0 && text[length - 1] === " ") {
-        length--;
-    }
-
-    return text.substring(0, length) + "…";
+function updateBrief(update: Update, index: number): string {
+  const number = index + 1
+  if (update.message) {
+    const text = update.message.text ?? ""
+    return `${number}. ${updateSender(update)}: ${text}`.slice(0, 60)
+  }
+  if (update.message_reaction) {
+    const emoji =
+      (update.message_reaction.new_reaction?.[0] as { emoji?: string })
+        ?.emoji ?? ""
+    return `${number}. ${updateSender(update)} reacted ${emoji} to message ${update.message_reaction.message_id ?? "?"}`
+  }
+  return `${number}. update`
 }
 
-function ToLabel(update: components["schemas"]["Update"]) {
-    if (update.message) {
-        const message = update.message;
-        return <><b>{tgRenderSenderName(message)}</b>: {Trim(message.text || "", createPositiveNumber(50))}</>;
-    }
+export function UpdateBrowser({
+  updates,
+  offset,
+  onChangeOffset,
+}: UpdateBrowserProps) {
+  const backward = useCallback(() => {
+    // Erase everything (acts as "Start") when already at the first update or at Start.
+    onChangeOffset(offset === null || offset <= 1 ? null : offset - 1)
+  }, [offset, onChangeOffset])
 
-    if (update.message_reaction) {
-        const reaction = update.message_reaction;
+  const forward = useCallback(() => {
+    onChangeOffset(
+      offset === null ? 1 : Math.min(offset + 1, updates.length)
+    )
+  }, [offset, updates.length, onChangeOffset])
 
-        if (reaction.new_reaction) {
-            return <><b>{tgRenderActorName(reaction)}</b> sets {ReactionText(reaction.new_reaction)}</>
-        }
+  const start = useCallback(() => {
+    onChangeOffset(null)
+  }, [onChangeOffset])
 
-        if (reaction.old_reaction) {
-            return <><b>{tgRenderActorName(reaction)}</b> removes {ReactionText(reaction.old_reaction)}</>
-        }
+  const end = useCallback(() => {
+    onChangeOffset(updates.length > 0 ? updates.length : null)
+  }, [updates.length, onChangeOffset])
 
-        return <><b>{tgRenderActorName(reaction)}</b> updates reactions</>
-    }
-
-    return <>Update #{update.update_id}</>;
-}
-
-function ReactionText(reactionCollection: components["schemas"]["ReactionType"][]): string {
-    const rawEmojis = [] as string[];
-
-    for (const reaction of reactionCollection) {
-        if (isEmoji(reaction) && reaction.emoji) {
-            rawEmojis.push(reaction.emoji);
-        } else {
-            return `${reactionCollection.length} reaction(s)`;
-        }
-    }
-
-    return rawEmojis.length === 0
-        ? `nothing`
-        : rawEmojis.reduce((a, b) => `${a}${b}`);
+  return (
+    <div className="w-96 border-l bg-muted/50 flex flex-col shrink-0">
+      <div className="p-4 border-b shrink-0">
+        <div className="text-sm font-semibold mb-1">
+          {offset === null ? "Start" : `Offset ${offset} of ${updates.length}`}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={start}>
+            Start
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={backward}
+            disabled={updates.length === 0}
+          >
+            Backward
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={forward}
+            disabled={updates.length === 0}
+          >
+            Forward
+          </Button>
+          <Button variant="outline" size="sm" onClick={end}>
+            End
+          </Button>
+        </div>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-2">
+          <Separator className="my-2" />
+          {updates.map((update, index) => {
+            const number = index + 1
+            const checked = offset !== null && offset >= number
+            return (
+              <div
+                key={number}
+                className="flex items-center gap-2 shrink-0"
+              >
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={() => onChangeOffset(number)}
+                  aria-label={`Update ${number}`}
+                />
+                <span
+                  className="text-xs cursor-pointer select-none truncate"
+                  title={updateBrief(update, index)}
+                  onClick={() => onChangeOffset(number)}
+                >
+                  {updateBrief(update, index)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </ScrollArea>
+    </div>
+  )
 }

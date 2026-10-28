@@ -99,7 +99,7 @@ Alternatively one can delete necessary session data using raw SQL queries (e. g.
 Here 1234567891:abcdefghijklmnopqrstuvwxyz123456789 denotes the bot token used in this story; substitute a real token.
 
 ```pwsh
-$Env:TOKEN = 1234567891:abcdefghijklmnopqrstuvwxyz123456789
+$Env:TOKEN = "1234567891:abcdefghijklmnopqrstuvwxyz123456789"
 ```
 
 Run this command once per console window where the token is required. Running the same command again in the same console window has no effect.

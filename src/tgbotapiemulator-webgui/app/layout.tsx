@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeToggle } from "./components/ThemeToggle";
+import { TitleBar } from "./components/TitleBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,10 +25,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <div className="flex justify-end p-2">
-          <ThemeToggle />
-        </div>
+      <body className={`${geistSans.variable} ${geistMono.variable} h-screen flex flex-col`}>
+        <TitleBar />
         {children}
       </body>
     </html>

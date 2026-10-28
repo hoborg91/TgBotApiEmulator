@@ -15,12 +15,21 @@ internal interface ITgBotSessionStorage
         DateTimeOptionalInterval? dtmLastUpdatedBetweenIncluding = null,
         SessionOrdering[]? orderBy = null);
 
+    Task<int> CountTgSessionsAsync(
+        CancellationToken cancellationToken,
+        string? botTokenHash = null);
+
     TgSession GetTgSessionById(
         TgSessionId tgSessionId);
 
     TgSession CreateTgSession(
         string nonUniqueName,
         string? botTokenHash = null);
+
+    Task<TgSession?> RenameTgSessionAsync(
+        TgSessionId sessionId,
+        string newName,
+        CancellationToken cancellationToken);
 
     // Task<IEnumerable<TgSessionRecord>> GetOrderedRecordsAsync(
     //     CancellationToken cancellationToken,

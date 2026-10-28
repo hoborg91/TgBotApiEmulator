@@ -4,7 +4,46 @@
  */
 
 export interface paths {
-    "/admin/currentSession/{sessionId}": {
+    "/admin/operatingMode/{botToken}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botToken: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OperatingMode"];
+                        "application/json": components["schemas"]["OperatingMode"];
+                        "text/json": components["schemas"]["OperatingMode"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/operatingMode/{botToken}/{operatingMode}": {
         parameters: {
             query?: never;
             header?: never;
@@ -17,7 +56,8 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    sessionId: number;
+                    botToken: string;
+                    operatingMode: components["schemas"]["OperatingMode"];
                 };
                 cookie?: never;
             };
@@ -29,9 +69,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": string;
-                        "application/json": string;
-                        "text/json": string;
+                        "text/plain": components["schemas"]["OperatingMode"];
+                        "application/json": components["schemas"]["OperatingMode"];
+                        "text/json": components["schemas"]["OperatingMode"];
                     };
                 };
             };
@@ -121,7 +161,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/{botTokenString}/getMe": {
+    "/{botPrefixedToken}/getMe": {
         parameters: {
             query?: never;
             header?: never;
@@ -135,7 +175,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    botTokenString: string;
+                    botPrefixedToken: string;
                 };
                 cookie?: never;
             };
@@ -160,7 +200,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/{botTokenString}/deleteWebhook": {
+    "/{botPrefixedToken}/deleteWebhook": {
         parameters: {
             query?: never;
             header?: never;
@@ -176,7 +216,7 @@ export interface paths {
                 };
                 header?: never;
                 path: {
-                    botTokenString: string;
+                    botPrefixedToken: string;
                 };
                 cookie?: never;
             };
@@ -201,7 +241,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/{botTokenString}/getUpdates": {
+    "/{botPrefixedToken}/getUpdates": {
         parameters: {
             query?: never;
             header?: never;
@@ -215,7 +255,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    botTokenString: string;
+                    botPrefixedToken: string;
                 };
                 cookie?: never;
             };
@@ -246,7 +286,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/{botTokenString}/sendMessage": {
+    "/{botPrefixedToken}/sendMessage": {
         parameters: {
             query?: never;
             header?: never;
@@ -260,7 +300,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    botTokenString: string;
+                    botPrefixedToken: string;
                 };
                 cookie?: never;
             };
@@ -291,7 +331,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/{botTokenString}/setMessageReaction": {
+    "/{botPrefixedToken}/setMessageReaction": {
         parameters: {
             query?: never;
             header?: never;
@@ -305,7 +345,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    botTokenString: string;
+                    botPrefixedToken: string;
                 };
                 cookie?: never;
             };
@@ -379,7 +419,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/test/makePostmanCollection": {
+    "/test/makePostmanCollection/{botToken}": {
         parameters: {
             query?: never;
             header?: never;
@@ -388,11 +428,11 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: {
-                    sessionId?: number;
-                };
+                query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    botToken: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
@@ -451,6 +491,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/test/sessions/{sessionId}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["RenameSessionRequest"];
+                    "text/json": components["schemas"]["RenameSessionRequest"];
+                    "application/*+json": components["schemas"]["RenameSessionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
     "/test/sessions/{sessionId}/updates": {
         parameters: {
             query?: never;
@@ -464,6 +545,45 @@ export interface paths {
                 header?: never;
                 path: {
                     sessionId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["Update"][];
+                        "application/json": components["schemas"]["Update"][];
+                        "text/json": components["schemas"]["Update"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/bot/{botToken}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botToken: string;
                 };
                 cookie?: never;
             };
@@ -564,8 +684,7 @@ export interface components {
             send_date?: string | null;
         };
         Assert: {
-            /** Format: int64 */
-            session_id?: number;
+            bot_token?: string | null;
             /** Format: int32 */
             timeout_milliseconds?: number;
         };
@@ -2684,6 +2803,7 @@ export interface components {
             new_reaction?: components["schemas"]["ReactionType"][] | null;
         };
         MessageRequest: {
+            bot_token?: string | null;
             /** Format: int64 */
             chat_id?: number;
             text?: string | null;
@@ -2693,6 +2813,8 @@ export interface components {
             /** Format: int64 */
             offset?: number;
         };
+        /** @enum {string} */
+        OperatingMode: "RecordingProxy" | "Emulator";
         OrderInfo: {
             name?: string | null;
             phone_number?: string | null;
@@ -2972,6 +3094,9 @@ export interface components {
         RemoveUserVerificationRequest: components["schemas"]["BooleanRequestBase"] & {
             /** Format: int64 */
             user_id?: number;
+        };
+        RenameSessionRequest: {
+            name?: string | null;
         };
         ReopenForumTopicRequest: components["schemas"]["BooleanRequestBase"] & {
             chat_id?: components["schemas"]["ChatId"];
@@ -4184,6 +4309,10 @@ export interface components {
         TgSession: {
             id?: components["schemas"]["TgSessionId"];
             non_unique_name?: string | null;
+            /** Format: date-time */
+            dtm_created?: string;
+            /** Format: date-time */
+            dtm_last_updated?: string;
         };
         TgSessionId: {
             /** Format: int64 */

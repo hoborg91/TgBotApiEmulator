@@ -12,7 +12,8 @@ namespace TgBotApiEmulator.Controllers;
 [Route("test")]
 public class TestController(
     ISessionFacadeRead facade,
-    IPostmanFacade postmanFacade) : Controller
+    IPostmanFacade postmanFacade,
+    IRecordingProxyFacadeWrite facadeWrite) : Controller
 {
     [HttpGet("makePostmanCollection/{botToken}")]
     public async Task<IActionResult> GetRecordsAsync(
@@ -35,7 +36,26 @@ public class TestController(
     {
         var sessions = await facade.GetSessionsAsync(cancellationToken);
 
-        return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName))];
+        return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName, s.DtmCreated, s.DtmLastUpdated))];
+    }
+
+    [HttpPatch("sessions/{sessionId}/name")]
+    public async Task<IActionResult> RenameSessionAsync(
+        [FromRoute] long sessionId,
+        [FromBody] RenameSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var session = await facadeWrite.RenameSessionAsync(
+            new(sessionId),
+            request.Name,
+            cancellationToken);
+
+        if (session is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new { name = session.NonUniqueName });
     }
 
     [HttpGet("sessions/{sessionId}/updates")]
@@ -82,4 +102,9 @@ public class TestController(
 
 public record TgSession(
     TgSessionId Id,
-    string NonUniqueName);
+    string NonUniqueName,
+    DateTime DtmCreated,
+    DateTime DtmLastUpdated);
+
+public record RenameSessionRequest(
+    string Name);

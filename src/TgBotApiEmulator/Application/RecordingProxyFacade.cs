@@ -13,7 +13,9 @@ namespace TgBotApiEmulator.Application;
 
 public record TgSession(
     TgSessionId Id,
-    string NonUniqueName);
+    string NonUniqueName,
+    DateTime DtmCreated,
+    DateTime DtmLastUpdated);
 
 public interface ISessionFacadeRead
 {
@@ -73,6 +75,11 @@ public interface IRecordingProxyFacadeWrite
         TgSessionId sessionId,
         TgSessionRecordId recordId,
         CancellationToken cancellationToken);
+
+    Task<TgSession?> RenameSessionAsync(
+        TgSessionId sessionId,
+        string newName,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class RecordingProxyFacade(
@@ -99,7 +106,9 @@ internal sealed class RecordingProxyFacade(
             return sessions.Single().Then(StorageToApplication);
         }
 
-        return storage.CreateTgSession(botTokenHash, botTokenHash)
+        var nextIndex = await storage.CountTgSessionsAsync(cancellationToken, botTokenHash: null);
+
+        return storage.CreateTgSession($"Session {nextIndex + 1}", botTokenHash)
             .Then(StorageToApplication);
     }
 
@@ -289,6 +298,17 @@ internal sealed class RecordingProxyFacade(
 
     private TgSession StorageToApplication(Storage.Contracts.Entities.TgSession session) => new(
         session.Id,
-        session.NonUniqueName
+        session.NonUniqueName,
+        session.DtmCreated,
+        session.DtmLastUpdated
     );
+
+    public async Task<TgSession?> RenameSessionAsync(
+        TgSessionId sessionId,
+        string newName,
+        CancellationToken cancellationToken)
+    {
+        var session = await storage.RenameTgSessionAsync(sessionId, newName, cancellationToken);
+        return session is null ? null : StorageToApplication(session);
+    }
 }

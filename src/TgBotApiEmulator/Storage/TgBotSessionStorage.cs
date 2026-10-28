@@ -106,6 +106,21 @@ internal sealed class TgBotSessionStorage(
         };
     }
 
+    public Task<int> CountTgSessionsAsync(
+        CancellationToken cancellationToken,
+        string? botTokenHash = null)
+    {
+        IQueryable<TgSession> query = dbContext.TgSessions
+            ?? throw new Exception();
+
+        if (!string.IsNullOrWhiteSpace(botTokenHash))
+        {
+            query = query.Where(s => s.BotTokenHash == botTokenHash);
+        }
+
+        return query.CountAsync(cancellationToken);
+    }
+
     public TgSession GetTgSessionById(TgSessionId tgSessionId) =>
         GetTgSessionByIdInternal(tgSessionId);
 
@@ -126,6 +141,21 @@ internal sealed class TgBotSessionStorage(
             ?? throw new Exception()).Add(session);
 
         dbContext.SaveChanges();
+
+        return session;
+    }
+
+    public async Task<TgSession?> RenameTgSessionAsync(
+        TgSessionId sessionId,
+        string newName,
+        CancellationToken cancellationToken)
+    {
+        var session = GetTgSessionByIdInternal(sessionId);
+
+        session.NonUniqueName = newName;
+        session.DtmLastUpdated = timeProvider.GetUtcNow().DateTime;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return session;
     }
