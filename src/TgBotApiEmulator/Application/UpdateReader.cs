@@ -15,7 +15,8 @@ public interface IUpdateReader
 
 internal sealed class UpdateReader(
     ISessionFacadeRead sessionFacadeRead,
-    IClock clock) : IUpdateReader
+    IClock clock,
+    IUpdateNotifier? updateNotifier = null) : IUpdateReader
 {
     private readonly TimeSpan _step = TimeSpan.FromMilliseconds(100);
 
@@ -82,7 +83,37 @@ internal sealed class UpdateReader(
                 return (null, elapsed, observedOffset);
             }
 
-            await clock.Delay(_step, cancellationToken);
+            // Wait for a notification about a new update (bounded by the remaining timeout),
+            // then re-poll the database. Falls back to a plain delay when no notifier is
+            // available (for example in unit tests that drive timing via IClock).
+            // We wait whenever we have not yet strictly passed the timeout, so that the
+            // stopwatch can advance and the elapsed > timeout check can eventually fire.
+            if (elapsed <= timeout)
+            {
+                var remaining = timeout - elapsed;
+                var waitTimeout = remaining > TimeSpan.Zero
+                    ? (remaining < _step ? remaining : _step)
+                    : _step;
+
+                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                waitCts.CancelAfter(waitTimeout);
+
+                try
+                {
+                    if (updateNotifier is not null)
+                    {
+                        await updateNotifier.SubscribeAsync(sessionId, waitCts.Token);
+                    }
+                    else
+                    {
+                        await clock.Delay(waitTimeout, cancellationToken);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Notification timeout or cancellation: loop and re-check elapsed/timeout.
+                }
+            }
 
             waitingMilliseconds = elapsed.TotalMilliseconds;
         }

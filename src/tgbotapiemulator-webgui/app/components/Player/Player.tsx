@@ -8,7 +8,7 @@ import { MessengerScreen } from "@/app/components/Player/MessengerScreen"
 import { UpdateBrowser } from "@/app/components/Player/UpdateBrowser"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Edit2, Save, X } from "lucide-react"
+import { Download, Edit2, Save, X } from "lucide-react"
 
 type Update = components["schemas"]["Update"]
 
@@ -49,6 +49,37 @@ export function Player({ session, onRename }: PlayerProps) {
   const [error, setError] = useState<string | null>(null)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newName, setNewName] = useState("")
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const downloadPostmanCollection = useCallback(async () => {
+    if (session?.kind !== "real") return
+    setIsDownloading(true)
+    try {
+      const client = createApiClient()
+      const { data, error: err } = await client.GET(
+        "/test/sessions/{sessionId}/postman-collection",
+        {
+          params: { path: { sessionId: session.sessionId } },
+          parseAs: "blob",
+        },
+      )
+      if (err) throw err
+      if (!data) throw new Error("Empty collection")
+      const blob = data as Blob
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `postman-collection-session-${session.sessionId}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // Swallow: no dedicated error UI; download simply fails silently.
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [session])
 
   const loadUpdates = useCallback(async () => {
     setError(null)
@@ -140,6 +171,16 @@ export function Player({ session, onRename }: PlayerProps) {
           title="Rename session"
         >
           <Edit2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={downloadPostmanCollection}
+          disabled={isDownloading}
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Download Postman collection"
+        >
+          <Download className="h-4 w-4" />
         </Button>
         {isRenaming ? (
           <>

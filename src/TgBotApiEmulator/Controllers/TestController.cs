@@ -82,6 +82,18 @@ public class TestController(
         return updates;
     }
 
+    [HttpGet("sessions/{sessionId}/postman-collection")]
+    public async Task<IActionResult> GetPostmanCollectionAsync(
+        [FromRoute] long sessionId,
+        CancellationToken cancellationToken)
+    {
+        var updates = await facade.GetOrderedUpdatesAsync(
+            new(sessionId),
+            cancellationToken);
+        var bytes = postmanFacade.MakeUtf8Bytes(updates);
+        return File(bytes, MediaTypeNames.Application.Json, "postman-collection.json");
+    }
+
     private async Task<TgSessionId> GetSessionIdAsync(string botToken, CancellationToken cancellationToken)
     {
         var botTokenHash = HashHelper.Hash(botToken);

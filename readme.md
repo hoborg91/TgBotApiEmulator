@@ -4,7 +4,7 @@
 
 This is a framework for Telegram bot testing. It allows to decouple the part of development and testing cycle from Telegram infrastructure.
 
-> ⚠ For now only `getUpdates` technique of bot interaction is supported.
+> **⚠** For now only `getUpdates` technique of bot interaction is supported.
 
 ## Example: regression testing
 

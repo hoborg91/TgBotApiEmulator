@@ -44,3 +44,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Automated GUI testing (DBT-2)
+
+Screenshot-based GUI tests run with Playwright and mock every backend request, so no running .NET backend is required.
+
+1. Start the WebGUI dev server: `npm run dev` (http://localhost:3000).
+2. Run the GUI tests: `npm run test:gui` (headless) or `npm run test:gui:headed` (headed browser).
+
+Screenshots are captured on each run and committed baselines live under `tests/gui/snapshots/`. Add new tests under `tests/gui/` and mock backend endpoints via `tests/mockBackend.ts`.

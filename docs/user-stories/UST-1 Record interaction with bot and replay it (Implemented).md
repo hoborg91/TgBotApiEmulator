@@ -1,48 +1,52 @@
-# UST-1 Record interaction with bot and replay it
+# UST-1 Record interaction with bot and replay it (Implemented)
 
 ## User story
 
-**As a** developer testing the Telegram bot,
-**I want to** record a conversation with the bot and replay it outside the live chat,
-**so that** I can reproduce the interaction deterministically in automated tests and in a visual player.
+- **As a** developer testing the Telegram bot,
+- **I want to** record a conversation with the bot and replay it outside the live chat,
+- **so that** I can reproduce the interaction deterministically in automated tests and in a visual player.
 
-### Acceptance criteria
+## Use cases
 
-**Scenario A — replay via Postman collection (CLI)**
+### USC-1.1. Replay via Postman collection
 
-- **Given** the Emulator is running and the bot is aimed at it,
-- **and given** the database contains no records for the bot token used in this story,
-- **when** the user records a conversation in recording proxy mode, turns recording off, and requests the Postman collection,
+- **Given** the Emulator is running and the sample bot is aimed at it,
+- **and given** the database contains no records for the sample bot token used in this story,
+- **when** the user records a conversation (messages only) in recording proxy mode, turns recording off, and requests the Postman collection (either via "raw" HTTP request, or via web GUI),
 - **then** the Emulator returns a Postman collection file,
 - **and when** the user runs that collection with Postman,
-- **then** the bot receives "qwerty" and replies "Text length: 6.",
-- **and** the bot receives "asdf" and replies "Text length: 4.",
+- **then** the sample bot receives user messages from the recorded conversation and send same replies to them,
 - **and** all tests in the collection pass.
 
-**Scenario B1 — open a recorded session in the web GUI**
+Example conversation follows.
+
+- **User**. qwerty.
+- **Bot**. Text length: 6.
+- **User**. asdf.
+- **Bot**. Text length: 4.
+
+### USC-1.2. Open session in web GUI
 
 - **Given** the recorded session exists in the Emulator database,
 - **and given** the web GUI is running,
-- **when** the user opens the sessions page at http://localhost:3000/sessions and selects the session corresponding to this story,
-- **then** the player opens at http://localhost:3000/player?sessionId={sessionId} with the correct `sessionId`,
-- **and** the update navigation panel contains 4 updates in addition to the artificial "Start" update, all unchecked,
+- **when** the user opens http://localhost:3000 and selects the session corresponding to this story,
+- **then** the player opens,
+- **and** the update navigation panel contains updates corresponding to the recorded session, all unchecked,
 - **and** the messenger emulator screen shows no messages.
 
-**Scenario B2 — step through the recorded session in the web GUI**
+### USC-1.3. Replay via web GUI
 
-- **Given** the player is open on the session from Scenario B1,
-- **when** the user selects the first update after "Start" (the one containing "qwerty"),
+- **Given** the player is open on the session from USC-1.2,
+- **when** the user selects the first update,
 - **then** the corresponding message appears on the messenger emulator screen and that update becomes checked,
 - **and when** the user activates "Forward",
 - **then** the corresponding message appears and the next update becomes checked,
 - **and when** the user keeps activating "Forward" until the offset counter reaches its final value,
-- **then** the screen shows all 4 messages of the recorded conversation and every update is checked.
-
-> **Consistency requirement.** The conversation replayed by Scenario A and the conversation shown by Scenarios B1–B2 must be identical (same 4 messages, same order, same text).
+- **then** the screen shows all messages of the recorded conversation and every update is checked.
 
 ## Terms
 
-**The bot** — the sample bot from this repository. It counts the symbols in each received message. The user supplies the bot token when starting the bot.
+**Sample bot** — the sample bot from this repository. It counts the symbols in each received message. The user supplies the bot token when starting the bot.
 
 **Postman collection** — a file that represents the recorded conversation between the user and the bot and can be replayed by Postman.
 
@@ -73,13 +77,13 @@ This command blocks the console until you press Ctrl+C, which stops the Emulator
 #### Option 2. Raw
 
 ```pwsh
-dotnet run --project .\src\TgBotApiEmulator\TgBotApiEmulator.csproj
+dotnet run --project ./src/TgBotApiEmulator/TgBotApiEmulator.csproj
 ```
 
 This command runs the server (the back-end part of the Emulator) only. It blocks the console until you press Ctrl+C, which stops the server. Open another console to run other commands.
 
 ```pwsh
-npm --prefix .\src\tgbotapiemulator-webgui run dev
+npm --prefix ./src/tgbotapiemulator-webgui run dev
 ```
 
 This command runs the web GUI (the front-end part of the Emulator) only. It blocks the console until you press Ctrl+C, which stops the web GUI. Open another console to run other commands.
@@ -125,7 +129,7 @@ curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/RecordingPro
 ### How to run the sample bot
 
 ```pwsh
-dotnet run --project .\src\TgBotSample\TgBotSample.csproj -- http://localhost:5134
+dotnet run --project ./src/TgBotSample/TgBotSample.csproj -- http://localhost:5134
 ```
 
 ### How to save the Postman collection of the recorded conversation
@@ -143,46 +147,3 @@ This command saves the file *regressionTest.json* in the repository root (provid
 ```pwsh
 postman collection run regressionTest.json --env-var "emulatorUrl=http://localhost:5134" --env-var "botToken=$Env:TOKEN"
 ```
-
-## Pre-conditions and common preliminary steps
-
-> Commands referenced in the use case below are listed in the Toolbox.
-
-**Pre-conditions.** The database contains no records for the bot token used in this story.
-
-1. The user runs the Emulator at http://localhost:5134.
-1. The user runs the bot and aims it at http://localhost:5134 instead of the Telegram Bot API servers.
-1. The user turns recording proxy mode on for the bot.
-1. The user opens the Telegram client and starts a chat with the bot.
-    1. The user sends "qwerty". The bot replies "Text length: 6."
-    1. The user sends "asdf". The bot replies "Text length: 4."
-1. The user closes the Telegram client.
-1. The user turns recording proxy mode off for the bot.
-
-## Use case: Record a conversation with the bot and replay it
-
-### Main success scenario
-
-1. The user records a conversation with the bot (common preliminary steps above).
-1. The user obtains the recorded conversation from the Emulator in a form suitable for replay.
-1. The user replays the conversation outside the live chat.
-
-### Alternative flow A. Replay via Postman collection (USC-1.1)
-
-1. The user requests the Postman collection of the recorded conversation from the Emulator.
-1. The user replays the conversation by running the collection with Postman.
-1. The bot receives "qwerty" and replies "Text length: 6."
-1. The bot receives "asdf" and replies "Text length: 4."
-1. All tests pass.
-1. The user stops the bot.
-1. The user stops the Emulator.
-
-### Alternative flow B. Replay via web GUI (USC-1.2)
-
-1. The user starts the web GUI (Toolbox, Option 2).
-1. The user selects the recorded session in the sessions list.
-1. The player displays the session. The update navigation panel shows 4 updates in addition to the artificial "Start" update; none of the 4 updates is checked, and the messenger emulator screen shows no messages.
-1. The user selects the first update after "Start" (the one containing "qwerty"). The player displays the corresponding message and marks that update as checked.
-1. The user steps to the next update. The player displays the corresponding message and marks the next update as checked.
-1. The user keeps stepping forward until the offset counter reaches its final value. The messenger emulator screen shows all 4 messages of the recorded conversation, and every update is checked.
-1. The user stops the web GUI and the Emulator.

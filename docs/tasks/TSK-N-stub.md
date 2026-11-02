@@ -1,6 +1,7 @@
 # TSK-N Title
 
-The description of the task must refer to the corresponding bug or debt. Examples:
+The description of the task must refer to the corresponding user story (use case), bug or debt. Examples:
+- **This addresses UST-L...**
 - **This resolves BUG-N...**
 - **This addresses DBT-M complaints...**
 
@@ -8,4 +9,8 @@ The description of the task must refer to the corresponding bug or debt. Example
 
 ## Affected files
 
+Optional.
+
 ## References
+
+Oprional.

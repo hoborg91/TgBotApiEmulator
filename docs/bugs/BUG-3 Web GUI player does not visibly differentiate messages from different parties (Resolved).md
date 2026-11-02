@@ -36,4 +36,4 @@ Adjust mocks in UpdateMock.ts and Hamlet-Act-1-Scene-2.ts. Hamlet must not be a 
 ## Affected use cases
 
 - UST-1 Record interaction with bot and replay it
-    - USC-1.2 Replay via web GUI
+    - USC-1.3 Replay via web GUI
