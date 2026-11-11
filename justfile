@@ -1,4 +1,4 @@
-docker-compose:
+run-as-docker:
 	docker compose -f ./src/docker-compose.yml up
 
 run-server:
@@ -20,10 +20,13 @@ run-sample-bot $TOKEN:
 	dotnet run --project ./src/TgBotSample/TgBotSample.csproj -- http://localhost:5134
 
 download-postman-collection $TOKEN:
-	curl -X 'GET' 'http://localhost:5134/test/makePostmanCollection/{{TOKEN}}' -o regressionTest.json
+	curl -X 'GET' 'http://localhost:5134/test/bot/{{TOKEN}}/postman-collection' -o regressionTest.json
 
 run-postman-collection $TOKEN:
 	postman collection run regressionTest.json --env-var "emulatorUrl=http://localhost:5134" --env-var "botToken={{TOKEN}}"
 
 screenshot:
 	npm --prefix ./src/tgbotapiemulator-webgui run test:gui
+
+update-contracts:
+	npx openapi-typescript http://localhost:5134/swagger/v1/swagger.json -o ./src/tgbotapiemulator-webgui/app/contracts/emulator-api.g.d.ts

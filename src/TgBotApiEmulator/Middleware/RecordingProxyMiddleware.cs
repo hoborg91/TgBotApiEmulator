@@ -39,7 +39,9 @@ internal sealed class RecordingProxyMiddleware(
 
         var tgBotApiMethod = GetTgBotApiMethod(path);
 
-        var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+        var sessionId = (await facade.GetOrCreateSessionAsync(
+            botTokenHash,
+            cancellationToken)).Id;
 
         await facade.RecordBotRequestAsync(
             sessionId,

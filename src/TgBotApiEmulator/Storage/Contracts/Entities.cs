@@ -5,6 +5,7 @@ namespace TgBotApiEmulator.Storage.Contracts.Entities;
 internal class Settings
 {
     public SettingsId Id { get; set; }
+    public required string BotTokenHash { get; set; }
     public bool IsActive { get; set; }
     public DateTime DtmCreated { get; set; }
     public TgSessionId? CurrentTgSessionId { get; set; }
@@ -21,8 +22,15 @@ internal class TgSession
     public TgSessionId Id { get; set; }
     public required string NonUniqueName { get; set; }
     public string? BotTokenHash { get; set; }
+    public string? BotName { get; set; }
     public DateTime DtmCreated { get; set; }
     public DateTime DtmLastUpdated { get; set; }
+
+    /// <summary>
+    /// Soft-delete flag. Deleted sessions are excluded from session list queries
+    /// and are not shown to the user. The record itself is kept in the database.
+    /// </summary>
+    public bool IsDeleted { get; set; }
 
     /// <summary>
     /// The primary key of the last update record returned to the bot.

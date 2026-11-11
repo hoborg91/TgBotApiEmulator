@@ -1,4 +1,4 @@
-# TSK-8 Update notifier service
+# TSK-8 Update notifier service (Done)
 
 Introduce an application-level, singleton update notifier service so that `UpdateReader.WaitForUpdateAsync` can wait for new updates via notification instead of repeatedly polling the database. This addresses DBT-3 (emulator mode only), where all updates flow through the Emulator and most polls return nothing.
 

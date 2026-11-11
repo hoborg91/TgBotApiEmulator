@@ -20,7 +20,7 @@
 - **and** the new message is not visible in the player's sreen,
 - **and** the current offset not changed.
 
-### USC-2.1
+### USC-2.2
 
 - **Given** a recorded session is open in the GUI player,
 - **and** all updates are checked (either the is no updates at all, or the current offset equals the offset of the last visible update)

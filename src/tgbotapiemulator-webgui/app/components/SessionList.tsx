@@ -1,30 +1,21 @@
 "use client"
 
-import { useCallback, useState } from "react"
-import { createApiClient } from "@/app/utils/api"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Edit2, Save, X } from "lucide-react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, X, Save, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react"
 import type { TgSession } from "@/app/page"
-
-type SelectableSession =
-  | {
-      kind: "real"
-      sessionId: number
-      sessionName: string
-      dtm_created: string
-      dtm_last_updated: string
-    }
-  | { kind: "mocked" }
 
 interface SessionListProps {
   sessions: TgSession[] | null | undefined
   sessionsError: string | null
   isLoading: boolean
-  onSelect: (session: SelectableSession) => void
-  onRename: (sessionId: number, newName: string) => void
+  onSelect: (sessionId: number, botTokenHash: string | null) => void
+  onSelectMocked: () => void
+  onCreateSession: (botTokenHash: string, name: string) => void
+  onReload: () => void
   collapsed: boolean
   onToggleCollapse: (collapsed: boolean) => void
 }
@@ -39,8 +30,10 @@ function formatDateTime(value: string): string {
   })
 }
 
-interface RenameSessionRequest {
-  name: string
+function tokenLabel(botTokenHash: string | null, botName: string | null): string {
+  if (botName) return botName
+  if (!botTokenHash) return "Unknown token"
+  return `…${botTokenHash.slice(-6)}`
 }
 
 export function SessionList({
@@ -48,42 +41,81 @@ export function SessionList({
   sessionsError,
   isLoading,
   onSelect,
-  onRename,
+  onCreateSession,
+  onReload,
   collapsed,
   onToggleCollapse,
+  onSelectMocked,
 }: SessionListProps) {
   const list = sessions ?? []
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editName, setEditName] = useState("")
+  const [creatingToken, setCreatingToken] = useState<string | null>(null)
+  const [createName, setCreateName] = useState("")
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string | null>>(
+    new Set(),
+  )
 
-  const startEdit = useCallback((session: TgSession) => {
-    setEditingId(session.id.value)
-    setEditName(session.non_unique_name ?? "")
-  }, [])
-
-  const cancelEdit = useCallback(() => {
-    setEditingId(null)
-    setEditName("")
-  }, [])
-
-  const saveEdit = useCallback(async (session: TgSession) => {
-    if (!editName.trim()) return
-
-    const client = createApiClient()
-    const { error } = await client.PATCH(
-      "/test/sessions/{sessionId}/name",
-      {
-        params: { path: { sessionId: session.id.value } },
-        body: { name: editName.trim() } as RenameSessionRequest,
-      },
-    )
-
-    if (!error) {
-      onRename(session.id.value, editName.trim())
-      setEditingId(null)
-      setEditName("")
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
     }
-  }, [editName, onRename])
+    try {
+      const raw = localStorage.getItem("tgbot-session-groups-collapsed")
+      if (!raw) return
+      const arr = JSON.parse(raw)
+      if (!Array.isArray(arr)) return
+      setCollapsedGroups(
+        new Set(arr.map((v) => (v === "null" ? null : (v as string | null)))),
+      )
+    } catch {
+      // Ignore storage quota/private-mode errors.
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      const arr = [...collapsedGroups].map((v) =>
+        v === null ? "null" : v,
+      )
+      localStorage.setItem("tgbot-session-groups-collapsed", JSON.stringify(arr))
+    } catch {
+      // Ignore storage quota/private-mode errors.
+    }
+  }, [collapsedGroups])
+
+  const groups = new Map<string | null, TgSession[]>()
+  for (const session of list) {
+    const key = session.bot_token_hash ?? null
+    const bucket = groups.get(key) ?? []
+    bucket.push(session)
+    groups.set(key, bucket)
+  }
+
+  const toggleGroup = useCallback((botTokenHash: string | null) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(botTokenHash)) {
+        next.delete(botTokenHash)
+      } else {
+        next.add(botTokenHash)
+      }
+      return next
+    })
+  }, [])
+
+  const isGroupCollapsed = useCallback(
+    (botTokenHash: string | null) => collapsedGroups.has(botTokenHash),
+    [collapsedGroups],
+  )
+
+  const startCreate = useCallback((botTokenHash: string) => {
+    setCreatingToken(botTokenHash)
+    setCreateName("")
+  }, [])
+
+  const cancelCreate = useCallback(() => {
+    setCreatingToken(null)
+    setCreateName("")
+  }, [])
 
   return (
     <div
@@ -95,19 +127,30 @@ export function SessionList({
         <h2 className={`text-sm font-semibold ${collapsed ? "hidden" : ""}`}>
           Sessions
         </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onToggleCollapse(!collapsed)}
-          className="h-8 w-8 p-0"
-          title={collapsed ? "Expand session list" : "Collapse session list"}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onReload}
+            className="h-8 w-8 p-0"
+            title="Reload sessions"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onToggleCollapse(!collapsed)}
+            className="h-8 w-8 p-0"
+            title={collapsed ? "Expand session list" : "Collapse session list"}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {sessionsError ? (
@@ -122,88 +165,140 @@ export function SessionList({
         </p>
       ) : (
         <>
-          {list.map((session) => {
-            const isEditing = editingId === session.id.value
-            const displayName =
-              session.non_unique_name ?? `Session #${session.id.value}`
-
-            if (isEditing) {
-              return (
-                <div
-                  key={session.id.value}
-                  className="flex items-center gap-2 p-2 rounded-lg border border-accent bg-accent/50"
-                >
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveEdit(session)
-                      if (e.key === "Escape") cancelEdit()
-                    }}
-                    className="flex-1 text-sm"
-                    autoFocus
-                  />
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => saveEdit(session)}
-                    disabled={!editName.trim()}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Save className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={cancelEdit}
-                    className="h-8 w-8 p-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )
-            }
+          {[...groups.entries()].map(([botTokenHash, group]) => {
+            const isCreating = creatingToken === botTokenHash
+            const groupCollapsed = isGroupCollapsed(botTokenHash)
+            const botName = group.find((s) => s.bot_name)?.bot_name ?? null
 
             return (
               <div
-                key={session.id.value}
-                className="group flex items-center justify-between gap-2 rounded-lg border border-transparent hover:border-accent hover:bg-accent/50 transition-colors p-2"
-              onClick={() =>
-                onSelect({
-                  kind: "real",
-                  sessionId: session.id.value,
-                  sessionName: displayName,
-                  dtm_created: session.dtm_created,
-                  dtm_last_updated: session.dtm_last_updated,
-                })
-              }
+                key={botTokenHash ?? "null"}
+                className="mb-2"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {displayName}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Started {formatDateTime(session.dtm_created)}
-                    {session.dtm_last_updated && (
-                      <>
-                        &nbsp;·&nbsp; Ended {formatDateTime(
-                          session.dtm_last_updated,
-                        )}
-                      </>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg border border-transparent hover:border-accent hover:bg-accent/50 transition-colors">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleGroup(botTokenHash)}
+                    className="h-8 w-8 p-0 shrink-0"
+                    title={groupCollapsed ? "Expand group" : "Collapse group"}
+                  >
+                    {groupCollapsed ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
                     )}
+                  </Button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate text-muted-foreground">
+                      {tokenLabel(botTokenHash, botName)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {group.length} session{group.length !== 1 ? "s" : ""}
+                    </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => startCreate(String(botTokenHash))}
+                    disabled={isCreating || groupCollapsed}
+                    className="h-8 w-8 p-0"
+                    title="New session for this bot"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    startEdit(session)
-                  }}
-                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
+
+                {!groupCollapsed && (
+                  <>
+                    {isCreating ? (
+                      <div className="flex items-center gap-2 p-2 rounded-lg border border-accent bg-accent/50">
+                        <Input
+                          value={createName}
+                          onChange={(e) => setCreateName(e.target.value)}
+                          placeholder="Session name"
+                          className="flex-1 text-sm"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              if (!createName.trim()) return
+                              onCreateSession(String(botTokenHash), createName)
+                              cancelCreate()
+                            }
+                            if (e.key === "Escape") cancelCreate()
+                          }}
+                        />
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            if (!createName.trim()) return
+                            onCreateSession(String(botTokenHash), createName)
+                            cancelCreate()
+                          }}
+                          disabled={!createName.trim()}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={cancelCreate}
+                          className="h-8 w-8 p-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : null}
+
+                    <ul className="divide-y divide-muted/30">
+                      {group.map((session) => {
+                        const displayName =
+                          session.non_unique_name ?? `Session #${session.id.value}`
+                        const isActive = Boolean(session.is_active)
+
+                        return (
+                          <li
+                            key={session.id.value}
+                            className="group flex items-center justify-between gap-2 rounded-lg border border-transparent hover:border-accent hover:bg-accent/50 transition-colors p-2"
+                          >
+                            <div
+                              className="flex-1 min-w-0 cursor-pointer"
+                              onClick={() =>
+                                onSelect(
+                                  session.id.value,
+                                  session.bot_token_hash,
+                                )
+                              }
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium truncate">
+                                  {displayName}
+                                </span>
+                                {isActive && (
+                                  <span className="inline-flex items-center rounded-md border border-accent px-1.5 py-0.5 text-xs font-semibold text-accent-foreground">
+                                    active
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                Started {formatDateTime(session.dtm_created)}
+                                {session.dtm_last_updated && (
+                                  <>
+                                    &nbsp;·&nbsp; Ended {formatDateTime(
+                                      session.dtm_last_updated,
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </>
+                )}
               </div>
             )
           })}
@@ -214,7 +309,7 @@ export function SessionList({
       <Button
         variant="link"
         className="w-full justify-start text-sm mt-2"
-        onClick={() => onSelect({ kind: "mocked" })}
+        onClick={onSelectMocked}
       >
         Open mocked session
       </Button>

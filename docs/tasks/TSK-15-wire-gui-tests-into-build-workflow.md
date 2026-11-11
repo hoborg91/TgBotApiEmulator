@@ -1,4 +1,4 @@
-# TSK-15 Wire GUI tests into WebGUI build/lint workflow
+# TSK-15 Wire GUI tests into WebGUI build/lint workflow (Done)
 
 Document how to run GUI tests and ensure they pass alongside `npm run lint` and `npm run build`. No .NET backend is required.
 

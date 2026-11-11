@@ -26,7 +26,7 @@ public class AssertController(
         CancellationToken cancellationToken)
     {
         var botTokenHash = HashHelper.Hash(assert.BotToken);
-        var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+        var sessionId = await ResolveSessionIdAsync(assert.SessionId, botTokenHash, cancellationToken);
 
         var result = await myAssert.WaitForMessageFromBot(
             sessionId,
@@ -46,7 +46,7 @@ public class AssertController(
         CancellationToken cancellationToken)
     {
         var botTokenHash = HashHelper.Hash(assert.BotToken);
-        var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+        var sessionId = await ResolveSessionIdAsync(assert.SessionId, botTokenHash, cancellationToken);
 
         var result = await myAssert.WaitForMessageReactionFromBot(
             sessionId,
@@ -61,6 +61,19 @@ public class AssertController(
         return Json(result);
     }
 
+    private async Task<TgSessionId> ResolveSessionIdAsync(
+        long? sessionId,
+        string botTokenHash,
+        CancellationToken cancellationToken)
+    {
+        if (sessionId is { } id)
+        {
+            return (await facade.GetSessionAsync(new TgSessionId(id), cancellationToken)).Id;
+        }
+
+        return (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+    }
+
     public override JsonResult Json(object? data)
     {
         return base.Json(data, _jsonOptions);
@@ -69,14 +82,16 @@ public class AssertController(
 
 public abstract record Assert(
     string BotToken,
-    int TimeoutMilliseconds);
+    int TimeoutMilliseconds,
+    long? SessionId = null);
 
 public record MessageAssert(
     string BotToken,
     int AfterOffset,
     long ChatId,
     string MessageRegexPattern,
-    int TimeoutMilliseconds) : Assert(BotToken, TimeoutMilliseconds);
+    int TimeoutMilliseconds,
+    long? SessionId = null) : Assert(BotToken, TimeoutMilliseconds, SessionId);
 
 public record MessageReactionAssert(
     string BotToken,
@@ -84,4 +99,5 @@ public record MessageReactionAssert(
     long ChatId,
     int MessageId,
     string ReactionType,
-    int TimeoutMilliseconds) : Assert(BotToken, TimeoutMilliseconds);
+    int TimeoutMilliseconds,
+    long? SessionId = null) : Assert(BotToken, TimeoutMilliseconds, SessionId);

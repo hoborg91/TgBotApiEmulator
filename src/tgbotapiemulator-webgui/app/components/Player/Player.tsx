@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { createApiClient } from "@/app/utils/api"
+import { setActiveSessionByToken } from "@/app/utils/api"
 import type { components } from "@/app/contracts/emulator-api.g"
 import { GetUpdateMocks } from "@/app/player-mocks/UpdateMock"
 import { MessengerScreen } from "@/app/components/Player/MessengerScreen"
 import { UpdateBrowser } from "@/app/components/Player/UpdateBrowser"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Download, Edit2, Save, X } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Download, Trash2, Edit2, Save, X, CheckCircle2 } from "lucide-react"
 
 type Update = components["schemas"]["Update"]
 
@@ -19,12 +20,16 @@ type Session =
       sessionName: string
       dtm_created: string
       dtm_last_updated: string
+      botTokenHash: string | null
+      isActive?: boolean
     }
   | { kind: "mocked" }
 
 interface PlayerProps {
   session: Session | null
   onRename?: (sessionId: number, newName: string) => void
+  onDeleteSession?: (sessionId: number) => void
+  onSetActive?: (sessionId: number, botTokenHash: string | null) => void
 }
 
 function formatDateTime(value: string): string {
@@ -37,19 +42,15 @@ function formatDateTime(value: string): string {
   })
 }
 
-interface RenameSessionRequest {
-  name: string
-}
-
-export function Player({ session, onRename }: PlayerProps) {
+export function Player({ session, onRename, onDeleteSession, onSetActive }: PlayerProps) {
   const [updates, setUpdates] = useState<Update[] | null | undefined>(
     undefined
   )
   const [offset, setOffset] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newName, setNewName] = useState("")
-  const [isDownloading, setIsDownloading] = useState(false)
 
   const downloadPostmanCollection = useCallback(async () => {
     if (session?.kind !== "real") return
@@ -69,7 +70,7 @@ export function Player({ session, onRename }: PlayerProps) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `postman-collection-session-${session.sessionId}.json`
+      a.download = `${session.sessionName}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -80,6 +81,53 @@ export function Player({ session, onRename }: PlayerProps) {
       setIsDownloading(false)
     }
   }, [session])
+
+  const setActiveSession = useCallback(async () => {
+    if (session?.kind !== "real" || !session.botTokenHash) return
+    const client = createApiClient()
+    const { error: err } = await setActiveSessionByToken(
+      client,
+      session.botTokenHash,
+      session.sessionId,
+    )
+    if (!err) {
+      onSetActive?.(session.sessionId, session.botTokenHash)
+    }
+  }, [session, onSetActive])
+
+  interface RenameSessionRequest {
+    name: string
+  }
+
+  const startRename = useCallback(() => {
+    if (session?.kind !== "real") return
+    setNewName(session.sessionName)
+    setIsRenaming(true)
+  }, [session])
+
+  const cancelRename = useCallback(() => {
+    setIsRenaming(false)
+    setNewName("")
+  }, [])
+
+  const saveRename = useCallback(async () => {
+    if (!newName.trim() || session?.kind !== "real") return
+
+    const client = createApiClient()
+    const { error: err } = await client.PATCH(
+      "/test/sessions/{sessionId}/name",
+      {
+        params: { path: { sessionId: session.sessionId } },
+        body: { name: newName.trim() } as RenameSessionRequest,
+      },
+    )
+
+    if (!err) {
+      onRename?.(session.sessionId, newName.trim())
+      setIsRenaming(false)
+      setNewName("")
+    }
+  }, [newName, session, onRename])
 
   const loadUpdates = useCallback(async () => {
     setError(null)
@@ -113,46 +161,15 @@ export function Player({ session, onRename }: PlayerProps) {
     loadUpdates()
   }, [session, loadUpdates])
 
-  const sessionName =
-    session?.kind === "mocked"
-      ? "Mocked session"
-      : session?.kind === "real"
-        ? session.sessionName
-        : null
-
-  const startRename = useCallback(() => {
-    setNewName(sessionName ?? "")
-    setIsRenaming(true)
-  }, [sessionName])
-
-  const cancelRename = useCallback(() => {
-    setIsRenaming(false)
-    setNewName("")
-  }, [])
-
-  const saveRename = useCallback(async () => {
-    if (!newName.trim() || session?.kind !== "real") return
-
-    const client = createApiClient()
-    const { error: err } = await client.PATCH(
-      "/test/sessions/{sessionId}/name",
-      {
-        params: { path: { sessionId: session.sessionId } },
-        body: { name: newName.trim() } as RenameSessionRequest,
-      },
-    )
-
-    if (!err) {
-      onRename?.(session.sessionId, newName.trim())
-      setIsRenaming(false)
-      setNewName("")
-    }
-  }, [newName, session, onRename])
-
   const headerContent = session?.kind === "real" ? (
     <>
-      <h1 className="text-sm font-semibold truncate">
+      <h1 className="text-sm font-semibold truncate flex items-center gap-1">
         {session.sessionName}
+        {session.isActive && (
+          <span className="inline-flex items-center rounded-md border border-accent px-1.5 py-0.5 text-xs font-semibold text-accent-foreground">
+            active
+          </span>
+        )}
       </h1>
       <div className="text-xs text-muted-foreground mt-0.5">
         Started {formatDateTime(session.dtm_created)}
@@ -175,12 +192,30 @@ export function Player({ session, onRename }: PlayerProps) {
         <Button
           variant="ghost"
           size="sm"
+          onClick={() => onDeleteSession?.(session.sessionId)}
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+          title="Delete session"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={downloadPostmanCollection}
           disabled={isDownloading}
           className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
           title="Download Postman collection"
         >
           <Download className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={setActiveSession}
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Set active session"
+        >
+          <CheckCircle2 className="h-4 w-4" />
         </Button>
         {isRenaming ? (
           <>

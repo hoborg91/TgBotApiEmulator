@@ -135,7 +135,7 @@ dotnet run --project ./src/TgBotSample/TgBotSample.csproj -- http://localhost:51
 ### How to save the Postman collection of the recorded conversation
 
 ```pwsh
-curl -X 'GET' 'http://localhost:5134/test/makePostmanCollection/$Env:TOKEN' -o regressionTest.json
+curl -X 'GET' 'http://localhost:5134/test/bot/$Env:TOKEN/postman-collection' -o regressionTest.json
 ```
 
 This command saves the file *regressionTest.json* in the repository root (provided it is run from the repository root and completes successfully).

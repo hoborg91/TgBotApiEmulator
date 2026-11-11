@@ -1,4 +1,4 @@
-# TSK-10 Add Playwright and GUI smoke test scaffold
+# TSK-10 Add Playwright and GUI smoke test scaffold (Done)
 
 Add Playwright as a devDependency to the WebGUI with a smoke test that loads `http://localhost:3000`, asserts SessionList + Player render, and takes a screenshot. All backend requests are mocked so no running .NET backend is required. Add `test:gui` / `test:gui:headed` npm scripts and gitignore the Playwright report/results/screenshot dirs.
 

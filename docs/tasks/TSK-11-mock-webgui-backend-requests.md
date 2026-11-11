@@ -1,4 +1,4 @@
-# TSK-11 Mock all WebGUI backend requests
+# TSK-11 Mock all WebGUI backend requests (Done)
 
 Add MSW (or Playwright route mocking) to stub every endpoint the WebGUI calls so GUI tests run without a live .NET backend. Centralize mock data fixtures shared across tests. Verify tests make zero real backend calls.
 

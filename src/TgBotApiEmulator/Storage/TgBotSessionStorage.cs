@@ -19,10 +19,16 @@ internal sealed class TgBotSessionStorage(
         string? botTokenHash = null,
         DateTimeOptionalInterval? dtmCreatedBetweenIncluding = null,
         DateTimeOptionalInterval? dtmLastUpdatedBetweenIncluding = null,
-        SessionOrdering[]? orderBy = null)
+        SessionOrdering[]? orderBy = null,
+        bool includeDeleted = false)
     {
         IQueryable<TgSession> query = dbContext.TgSessions
             ?? throw new Exception();
+
+        if (!includeDeleted)
+        {
+            query = query.Where(s => !s.IsDeleted);
+        }
 
         if (tgSessionId != null)
         {
@@ -108,10 +114,16 @@ internal sealed class TgBotSessionStorage(
 
     public Task<int> CountTgSessionsAsync(
         CancellationToken cancellationToken,
-        string? botTokenHash = null)
+        string? botTokenHash = null,
+        bool includeDeleted = false)
     {
         IQueryable<TgSession> query = dbContext.TgSessions
             ?? throw new Exception();
+
+        if (!includeDeleted)
+        {
+            query = query.Where(s => !s.IsDeleted);
+        }
 
         if (!string.IsNullOrWhiteSpace(botTokenHash))
         {
@@ -126,13 +138,15 @@ internal sealed class TgBotSessionStorage(
 
     public TgSession CreateTgSession(
         string nonUniqueName,
-        string? botTokenHash = null)
+        string? botTokenHash = null,
+        string? botName = null)
     {
         var now = timeProvider.GetUtcNow().DateTime;
         var session = new TgSession
         {
             NonUniqueName = nonUniqueName,
             BotTokenHash = botTokenHash,
+            BotName = botName,
             DtmCreated = now,
             DtmLastUpdated = now,
         };
@@ -158,6 +172,57 @@ internal sealed class TgBotSessionStorage(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return session;
+    }
+
+    public async Task UpdateTgSessionBotNameAsync(
+        TgSessionId sessionId,
+        string botName,
+        CancellationToken cancellationToken)
+    {
+        var session = GetTgSessionByIdInternal(sessionId);
+
+        session.BotName = botName;
+        session.DtmLastUpdated = timeProvider.GetUtcNow().DateTime;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> DeleteTgSessionAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken)
+    {
+        var session = (dbContext.TgSessions
+            ?? throw new Exception())
+            .FirstOrDefault(s => s.Id == sessionId);
+
+        if (session is null)
+        {
+            return false;
+        }
+
+        session.IsDeleted = true;
+        session.DtmLastUpdated = timeProvider.GetUtcNow().DateTime;
+
+        // The deleted session becomes not active: clear CurrentTgSessionId for the
+        // bot associated with this session, if it was the current one.
+        if (session.BotTokenHash is { } hash)
+        {
+            var settings = (dbContext.Settings
+                ?? throw new Exception())
+                .Where(s => s.BotTokenHash == hash && s.IsActive)
+                .ToList();
+
+            foreach (var setting in settings)
+            {
+                if (setting.CurrentTgSessionId == sessionId)
+                {
+                    setting.CurrentTgSessionId = null;
+                }
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     // public Task<IEnumerable<TgSessionRecord>> GetOrderedRecordsAsync(

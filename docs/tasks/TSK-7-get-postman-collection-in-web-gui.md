@@ -1,4 +1,4 @@
-# TSK-7 Get Postman collection in web GUI
+# TSK-7 Get Postman collection in web GUI (Done)
 
 There should be a button for downloading the Postman collection representing the selected conversation. The button should be visible only when a conversation is selected. The button is located near the "rename session" button.
 

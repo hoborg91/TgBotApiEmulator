@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Telegram.Bot.Types;
 using TgBotApiEmulator.Application;
+using TgBotApiEmulator.Contracts;
 using TgBotApiEmulator.Utilities;
 
 namespace TgBotApiEmulator.Controllers;
@@ -17,7 +18,7 @@ public sealed class EmulatorController(
         CancellationToken cancellationToken)
     {
         var botTokenHash = HashHelper.Hash(request.BotToken);
-        var sessionId = (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+        var sessionId = await ResolveSessionIdAsync(request.SessionId, botTokenHash, cancellationToken);
 
         var updateId = await facade.RecordUpdateAsync(
             sessionId,
@@ -44,8 +45,21 @@ public sealed class EmulatorController(
 
         return new(updateId.Value);
     }
+
+    private async Task<TgSessionId> ResolveSessionIdAsync(
+        long? sessionId,
+        string botTokenHash,
+        CancellationToken cancellationToken)
+    {
+        if (sessionId is { } id)
+        {
+            return (await facade.GetSessionAsync(new TgSessionId(id), cancellationToken)).Id;
+        }
+
+        return (await facade.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+    }
 }
 
-public record MessageRequest(string BotToken, long ChatId, string Text);
+public record MessageRequest(string BotToken, long ChatId, string Text, long? SessionId = null);
 
 public record MessageResult(long Offset);

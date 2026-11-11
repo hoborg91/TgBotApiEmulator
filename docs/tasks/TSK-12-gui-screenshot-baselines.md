@@ -1,4 +1,4 @@
-# TSK-12 Add GUI screenshot baselines for main page states
+# TSK-12 Add GUI screenshot baselines for main page states (Done)
 
 Commit deterministic screenshot baselines for the main page states so developers can visually verify GUI changes by comparing against baselines.
 

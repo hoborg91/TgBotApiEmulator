@@ -38,7 +38,7 @@ dotnet run --project ./src/TgBotApiEmulator/TgBotApiEmulator.csproj
 
 ```pwsh
 $Env:TOKEN = "1234567891:abcdefghijklmnopqrstuvwxyz123456789"
-curl "http://localhost:5134/test/makePostmanCollection/$Env:TOKEN" -o regressionTest.json
+curl "http://localhost:5134/test/bot/$Env:TOKEN/postman-collection" -o regressionTest.json
 ```
 
 > `1234567891:abcdefghijklmnopqrstuvwxyz123456789` is an example bot token. Replace it with your token.

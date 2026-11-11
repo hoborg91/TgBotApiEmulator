@@ -4,9 +4,11 @@ namespace TgBotApiEmulator.Storage.Contracts;
 
 internal interface ISettingsStorage
 {
-    TgSessionId? FindCurrentTgSessionAsync();
+    TgSessionId? FindCurrentTgSessionAsync(
+        string botTokenHash);
 
     Task<TgSessionId> SetCurrentTgSessionAsync(
+        string botTokenHash,
         TgSessionId tgSessionId,
         CancellationToken cancellationToken);
 }

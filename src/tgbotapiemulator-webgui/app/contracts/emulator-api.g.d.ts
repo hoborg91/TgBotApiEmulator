@@ -419,41 +419,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/test/makePostmanCollection/{botToken}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    botToken: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/test/sessions": {
         parameters: {
             query?: never;
@@ -532,14 +497,17 @@ export interface paths {
         };
         trace?: never;
     };
-    "/test/sessions/{sessionId}/postman-collection": {
+    "/test/sessions/{sessionId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: {
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -559,9 +527,6 @@ export interface paths {
                 };
             };
         };
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -634,6 +599,157 @@ export interface paths {
                         "application/json": components["schemas"]["Update"][];
                         "text/json": components["schemas"]["Update"][];
                     };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/bot/{botToken}/postman-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botToken: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/bot/{botTokenHash}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botTokenHash: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateSessionRequest"];
+                    "text/json": components["schemas"]["CreateSessionRequest"];
+                    "application/*+json": components["schemas"]["CreateSessionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["TgSession"];
+                        "application/json": components["schemas"]["TgSession"];
+                        "text/json": components["schemas"]["TgSession"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/bot/{botTokenHash}/sessions/{sessionId}/set-active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botTokenHash: string;
+                    sessionId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/sessions/{sessionId}/postman-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -3133,6 +3249,10 @@ export interface components {
         RenameSessionRequest: {
             name?: string | null;
         };
+        CreateSessionRequest: {
+            name: string;
+            bot_name?: string | null;
+        };
         ReopenForumTopicRequest: components["schemas"]["BooleanRequestBase"] & {
             chat_id?: components["schemas"]["ChatId"];
             /** Format: int32 */
@@ -4344,6 +4464,8 @@ export interface components {
         TgSession: {
             id?: components["schemas"]["TgSessionId"];
             non_unique_name?: string | null;
+            bot_token_hash?: string | null;
+            bot_name?: string | null;
             /** Format: date-time */
             dtm_created?: string;
             /** Format: date-time */

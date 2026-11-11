@@ -21,7 +21,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0111. Happy path. Immediate result
+    /// Happy path. Immediate result
     /// </summary>
     [Test]
     public async Task HappyPathImmediate()
@@ -65,7 +65,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0121. Happy path. Delayed result
+    /// Happy path. Delayed result
     /// </summary>
     [Test]
     public async Task HappyPathDelayed()
@@ -109,7 +109,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0211. Timeout. No message
+    /// Timeout. No message
     /// </summary>
     [Test]
     public async Task TimeoutWithNoMessage()
@@ -150,7 +150,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0221. Timeout. Message with earlier offset
+    /// Timeout. Message with earlier offset
     /// </summary>
     [Test]
     public async Task TimeoutWithEarlierOffset()
@@ -194,7 +194,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0231. Timeout. Message appears after timeout
+    /// Timeout. Message appears after timeout
     /// </summary>
     [Test]
     public async Task TimeoutWithNonObservedMessage()
@@ -235,7 +235,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0311. Check input. Offset
+    /// Check input. Offset
     /// </summary>
     [Test]
     public void CheckInputOffset()
@@ -265,7 +265,7 @@ public class UpdateReaderTests
     }
 
     /// <summary>
-    /// TEC-0301.UNT-0321. Check input. Timeout
+    /// Check input. Timeout
     /// </summary>
     [Test]
     public void CheckInputTimeout()

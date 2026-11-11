@@ -15,7 +15,10 @@ public record TgSession(
     TgSessionId Id,
     string NonUniqueName,
     DateTime DtmCreated,
-    DateTime DtmLastUpdated);
+    DateTime DtmLastUpdated,
+    string? BotTokenHash,
+    string? BotName,
+    bool IsActive);
 
 public interface ISessionFacadeRead
 {
@@ -31,6 +34,10 @@ public interface ISessionFacadeRead
         UpdateOffset botOffset,
         CancellationToken cancellationToken);
 
+    Task<TgSession> GetSessionAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<TgSession>> GetSessionsAsync(
         CancellationToken cancellationToken,
         string? nonUniqueName = null,
@@ -44,6 +51,16 @@ public interface IRecordingProxyFacadeWrite
 {
     Task<TgSession> GetOrCreateSessionAsync(
         string botTokenHash,
+        CancellationToken cancellationToken);
+
+    Task<TgSession> CreateSessionAsync(
+        string botTokenHash,
+        string nonUniqueName,
+        string? botName,
+        CancellationToken cancellationToken);
+
+    Task<TgSession> GetSessionAsync(
+        TgSessionId sessionId,
         CancellationToken cancellationToken);
 
     Task RecordBotRequestAsync(
@@ -80,6 +97,20 @@ public interface IRecordingProxyFacadeWrite
         TgSessionId sessionId,
         string newName,
         CancellationToken cancellationToken);
+
+    Task<bool> DeleteSessionAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken);
+
+    Task SetBotNameAsync(
+        TgSessionId sessionId,
+        string botName,
+        CancellationToken cancellationToken);
+
+    Task SetCurrentSessionAsync(
+        string botTokenHash,
+        TgSessionId sessionId,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class RecordingProxyFacade(
@@ -91,25 +122,42 @@ internal sealed class RecordingProxyFacade(
         string botTokenHash,
         CancellationToken cancellationToken)
     {
-        var sessions = (await storage.GetTgSessionsAsync(
-            tgSessionId: null,
+        var currentSessionId = settingsStorage.FindCurrentTgSessionAsync(botTokenHash);
+
+        if (currentSessionId is { } id)
+        {
+            return await GetSessionAsync(id, cancellationToken);
+        }
+
+        var nextIndex = await storage.CountTgSessionsAsync(
             cancellationToken,
-            botTokenHash: botTokenHash)).ToArray();
+            botTokenHash: botTokenHash);
 
-        if (sessions.Length > 1)
-        {
-            throw new SessionDataCorruptedException();
-        }
+        return await CreateSessionAsync(botTokenHash, $"Session {nextIndex + 1}", null, cancellationToken);
+    }
 
-        if (sessions.Length == 1)
-        {
-            return sessions.Single().Then(StorageToApplication);
-        }
+    public async Task<TgSession> CreateSessionAsync(
+        string botTokenHash,
+        string nonUniqueName,
+        string? botName,
+        CancellationToken cancellationToken)
+    {
+        var nextIndex = await storage.CountTgSessionsAsync(
+            cancellationToken,
+            botTokenHash: botTokenHash);
 
-        var nextIndex = await storage.CountTgSessionsAsync(cancellationToken, botTokenHash: null);
+        var session = storage.CreateTgSession(
+            nonUniqueName,
+            botTokenHash,
+            botName)
+            .Then(s => StorageToApplication(s));
 
-        return storage.CreateTgSession($"Session {nextIndex + 1}", botTokenHash)
-            .Then(StorageToApplication);
+        await settingsStorage.SetCurrentTgSessionAsync(
+            botTokenHash,
+            session.Id,
+            cancellationToken);
+
+        return session;
     }
 
     public async Task<IReadOnlyCollection<Update>> GetOrderedUpdatesAsync(
@@ -155,7 +203,35 @@ internal sealed class RecordingProxyFacade(
             dtmLastUpdatedBetweenIncluding,
             orderBy);
 
-        return [.. result.Select(StorageToApplication)];
+        var activeSessionIds = new HashSet<TgSessionId>();
+        foreach (var session in result)
+        {
+            if (session.BotTokenHash is { } hash)
+            {
+                var current = settingsStorage.FindCurrentTgSessionAsync(hash);
+                if (current is { } id && id == session.Id)
+                {
+                    activeSessionIds.Add(session.Id);
+                }
+            }
+        }
+
+        return [.. result.Select(s => StorageToApplication(s, activeSessionIds.Contains(s.Id)))];
+    }
+
+    public async Task<TgSession> GetSessionAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken)
+    {
+        var sessions = await storage.GetTgSessionsAsync(
+            sessionId,
+            cancellationToken);
+
+        var session = sessions.Select(s => StorageToApplication(s)).Single();
+        var isActive = session.BotTokenHash is { } hash
+            && settingsStorage.FindCurrentTgSessionAsync(hash) == session.Id;
+
+        return session with { IsActive = isActive };
     }
 
     public async Task RecordBotRequestAsync(
@@ -216,6 +292,13 @@ internal sealed class RecordingProxyFacade(
 
                 if (message != null)
                 {
+                    var botName = message.From?.Username
+                        ?? message.From?.FirstName;
+                    if (!string.IsNullOrWhiteSpace(botName))
+                    {
+                        await SetBotNameAsync(sessionId, botName.Trim(), cancellationToken);
+                    }
+
                     await RecordUpdateAsync(
                         sessionId,
                         new Update { Message = message },
@@ -270,9 +353,9 @@ internal sealed class RecordingProxyFacade(
         CancellationToken cancellationToken)
         => storage.SetLastReceivedUpdateRecordIdAsync(sessionId, recordId, cancellationToken);
 
-    private TgSessionId GetCurrentSessionId()
+    private TgSessionId GetCurrentSessionId(string botTokenHash)
     {
-        return settingsStorage.FindCurrentTgSessionAsync()
+        return settingsStorage.FindCurrentTgSessionAsync(botTokenHash)
             ?? throw new Exception("No current session.");
     }
 
@@ -288,19 +371,17 @@ internal sealed class RecordingProxyFacade(
         var queueId = (int)updateRecord.Id.Value;
         update.Id = queueId;
 
-        if (update is { Message: { } m })
-        {
-            m.Id = queueId;
-        }
-
         return update;
     }
 
-    private TgSession StorageToApplication(Storage.Contracts.Entities.TgSession session) => new(
+    private static TgSession StorageToApplication(Storage.Contracts.Entities.TgSession session, bool isActive = false) => new(
         session.Id,
         session.NonUniqueName,
         session.DtmCreated,
-        session.DtmLastUpdated
+        session.DtmLastUpdated,
+        session.BotTokenHash,
+        session.BotName,
+        isActive
     );
 
     public async Task<TgSession?> RenameSessionAsync(
@@ -310,5 +391,28 @@ internal sealed class RecordingProxyFacade(
     {
         var session = await storage.RenameTgSessionAsync(sessionId, newName, cancellationToken);
         return session is null ? null : StorageToApplication(session);
+    }
+
+    public async Task<bool> DeleteSessionAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken)
+    {
+        return await storage.DeleteTgSessionAsync(sessionId, cancellationToken);
+    }
+
+    public async Task SetBotNameAsync(
+        TgSessionId sessionId,
+        string botName,
+        CancellationToken cancellationToken)
+    {
+        await storage.UpdateTgSessionBotNameAsync(sessionId, botName, cancellationToken);
+    }
+
+    public async Task SetCurrentSessionAsync(
+        string botTokenHash,
+        TgSessionId sessionId,
+        CancellationToken cancellationToken)
+    {
+        await settingsStorage.SetCurrentTgSessionAsync(botTokenHash, sessionId, cancellationToken);
     }
 }

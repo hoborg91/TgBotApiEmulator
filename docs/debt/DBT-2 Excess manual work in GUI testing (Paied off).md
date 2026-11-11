@@ -1,4 +1,4 @@
-# DBT-2 Excess manual work in GUI testing
+# DBT-2 Excess manual work in GUI testing (Paied off)
 
 **As a** developer of TgBotApiEmulator **I find that it is increasingly** time consuming **to** check web GUI changes **because** of excess manual work (restart web develeopment server, mouse clicks).
 

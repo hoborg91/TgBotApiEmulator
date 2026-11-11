@@ -1,4 +1,4 @@
-# TSK-13 Add GUI navigation tests for UpdateBrowser controls
+# TSK-13 Add GUI navigation tests for UpdateBrowser controls (Done)
 
 Add tests covering the UpdateBrowser navigation controls (`Start | Backward | Forward | End`) and assert the resulting offset and visible message set after each transition.
 

@@ -1,4 +1,4 @@
-# TSK-9 Wire update notifier into update recording points
+# TSK-9 Wire update notifier into update recording points (Done)
 
 Call the new update notifier from every code path that records an update in emulator mode, so waiters in `UpdateReader.WaitForUpdateAsync` are woken instead of timing out after repeated empty polls.
 

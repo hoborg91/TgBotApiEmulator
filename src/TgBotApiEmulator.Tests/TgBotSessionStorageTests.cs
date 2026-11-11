@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using TgBotApiEmulator.Application;
 using TgBotApiEmulator.Contracts;
 using TgBotApiEmulator.Storage;
 
@@ -210,5 +211,72 @@ public class TgBotSessionStorageTests
             Assert.That(lastReceived.Value.Value, Is.Not.EqualTo(own.Value));
             Assert.That(updatesForBot, Is.Empty);
         });
+    }
+
+    /// <summary>
+    /// Deleted sessions are excluded from the session list and become not active:
+    /// CurrentTgSessionId is cleared for the bot when its current session is deleted.
+    /// </summary>
+    [Test]
+    public async Task DeleteTgSessionAsync_ExcludesDeletedFromList_AndClearsCurrentSession()
+    {
+        // Arrange
+        await using var connection = await OpenInMemoryConnectionAsync();
+        await using var dbContext = new TgBotSessionContext(CreateOptions(connection));
+        var storage = new TgBotSessionStorage(dbContext, TimeProvider.System);
+        var settings = new SettingsStorage(dbContext, new RetranslatedRequestManager());
+
+        var s1 = storage.CreateTgSession("session1", botTokenHash: "hash");
+        var s2 = storage.CreateTgSession("session2", botTokenHash: "hash");
+        await settings.SetCurrentTgSessionAsync("hash", s1.Id, CancellationToken.None);
+
+        var allBefore = (await storage.GetTgSessionsAsync(null, CancellationToken.None)).ToArray();
+        Assert.That(allBefore, Has.Length.EqualTo(2));
+
+        // Act: delete the current session
+        var deleted = await storage.DeleteTgSessionAsync(s1.Id, CancellationToken.None);
+
+        // Assert
+        var remaining = (await storage.GetTgSessionsAsync(null, CancellationToken.None)).ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(deleted, Is.True);
+
+            // Excluded from the session list
+            Assert.That(remaining.Select(s => s.Id), Is.EqualTo([s2.Id]));
+
+            // The session record still exists but is marked deleted
+            var s1Record = (dbContext.TgSessions ?? throw new Exception()).Single(s => s.Id == s1.Id);
+            Assert.That(s1Record.IsDeleted, Is.True);
+
+            // Current session cleared for the bot -> not active
+            Assert.That(settings.FindCurrentTgSessionAsync("hash"), Is.Null);
+        });
+
+        // Deleting a non-existent session returns false
+        Assert.That(
+            await storage.DeleteTgSessionAsync(new TgSessionId(999), CancellationToken.None),
+            Is.False);
+    }
+
+    /// <summary>
+    /// Switching the active session aborts any in-flight retranslated request for the
+    /// bot, so a long-polling getUpdates that captured the previous session id does not
+    /// record its response under the stale session.
+    /// </summary>
+    [Test]
+    public async Task SetCurrentTgSessionAsync_AbortsPendingRetranslatedRequests()
+    {
+        // Arrange
+        await using var connection = await OpenInMemoryConnectionAsync();
+        await using var dbContext = new TgBotSessionContext(CreateOptions(connection));
+        var abortManager = new Mock<IRetranslatedRequestManager>();
+        var settings = new SettingsStorage(dbContext, abortManager.Object);
+
+        // Act
+        await settings.SetCurrentTgSessionAsync("hash", new TgSessionId(1), CancellationToken.None);
+
+        // Assert
+        abortManager.Verify(m => m.AbortPendingRequests("hash"), Times.Once);
     }
 }

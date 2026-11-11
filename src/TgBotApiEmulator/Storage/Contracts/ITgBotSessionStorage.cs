@@ -13,22 +13,41 @@ internal interface ITgBotSessionStorage
         string? botTokenHash = null,
         DateTimeOptionalInterval? dtmCreatedBetweenIncluding = null,
         DateTimeOptionalInterval? dtmLastUpdatedBetweenIncluding = null,
-        SessionOrdering[]? orderBy = null);
+        SessionOrdering[]? orderBy = null,
+        bool includeDeleted = false);
 
     Task<int> CountTgSessionsAsync(
         CancellationToken cancellationToken,
-        string? botTokenHash = null);
+        string? botTokenHash = null,
+        bool includeDeleted = false);
+
+    /// <summary>
+    /// Soft-deletes a session: marks it as deleted and not active. The record is kept
+    /// in the database. If the session is the current one for its bot,
+    /// <see cref="Settings.CurrentTgSessionId"/> is cleared for that bot so the session
+    /// becomes inactive and a new session can be created later.
+    /// Returns true if the session was found and deleted, false if not found.
+    /// </summary>
+    Task<bool> DeleteTgSessionAsync(
+        TgSessionId sessionId,
+        CancellationToken cancellationToken);
 
     TgSession GetTgSessionById(
         TgSessionId tgSessionId);
 
     TgSession CreateTgSession(
         string nonUniqueName,
-        string? botTokenHash = null);
+        string? botTokenHash = null,
+        string? botName = null);
 
     Task<TgSession?> RenameTgSessionAsync(
         TgSessionId sessionId,
         string newName,
+        CancellationToken cancellationToken);
+
+    Task UpdateTgSessionBotNameAsync(
+        TgSessionId sessionId,
+        string botName,
         CancellationToken cancellationToken);
 
     // Task<IEnumerable<TgSessionRecord>> GetOrderedRecordsAsync(

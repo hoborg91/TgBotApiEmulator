@@ -1,4 +1,4 @@
-# TSK-14 Add GUI session selection tests (none / mocked / real)
+# TSK-14 Add GUI session selection tests (none / mocked / real) (Done)
 
 Add tests covering session selection transitions across the `none | mocked | real` selection union, asserting the Player renders correctly and offset resets to `null` on deselect.
 

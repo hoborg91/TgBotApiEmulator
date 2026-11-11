@@ -56,7 +56,7 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
         // modelBuilder.Entity<TgSessionUpdateRecord>().Property(e => e.Offset);//.ValueGeneratedOnAdd();
 
         modelBuilder.Entity<TgSession>().Property(e => e.Id).ValueGeneratedOnAdd();
-        modelBuilder.Entity<TgSession>().HasIndex(e => e.BotTokenHash).IsUnique();
+        modelBuilder.Entity<TgSession>().HasIndex(e => e.BotTokenHash);
 
         modelBuilder.Entity<Settings>().Property(e => e.Id).ValueGeneratedOnAdd();
 
