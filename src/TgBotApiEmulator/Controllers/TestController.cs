@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TgBotApiEmulator.Application;
 using TgBotApiEmulator.Application.Postman;
 using TgBotApiEmulator.Contracts;
+using TgBotApiEmulator.Utilities;
 
 namespace TgBotApiEmulator.Controllers;
 
@@ -69,28 +70,14 @@ public class TestController(
         return updates;
     }
 
-    [HttpGet("bot/{botToken}/updates")]
-    public async Task<IReadOnlyCollection<Telegram.Bot.Types.Update>> GetSessionUpdatesAsync(
-        string botToken,
-        long? sessionId,
-        CancellationToken cancellationToken)
-    {
-        var resolvedSessionId = await ResolveSessionIdAsync(botToken, sessionId, cancellationToken);
-
-        var updates = await facade.GetOrderedUpdatesAsync(
-            resolvedSessionId,
-            cancellationToken);
-        return updates;
-    }
-
-    [HttpGet("bot/{botToken}/sessions")]
+    [HttpGet("bot/{botTokenHash}/sessions")]
     public async Task<IReadOnlyCollection<TgSession>> GetSessionsByTokenAsync(
-        string botToken,
+        string botTokenHash,
         CancellationToken cancellationToken)
     {
         var sessions = await facade.GetSessionsAsync(
             cancellationToken,
-            botTokenHash: botToken);
+            botTokenHash: botTokenHash);
 
         return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName, s.DtmCreated, s.DtmLastUpdated, s.BotTokenHash, s.BotName, s.IsActive))];
     }
@@ -125,10 +112,10 @@ public class TestController(
     [HttpGet("bot/{botToken}/postman-collection")]
     public async Task<IActionResult> GetPostmanCollectionByTokenAsync(
         [FromRoute] string botToken,
-        long? sessionId,
         CancellationToken cancellationToken)
     {
-        var resolvedSessionId = await ResolveSessionIdAsync(botToken, sessionId, cancellationToken);
+        var botTokenHash = HashHelper.Hash(botToken);
+        var resolvedSessionId = (await facadeWrite.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
         var session = await facade.GetSessionAsync(resolvedSessionId, cancellationToken);
         return await GetPostmanCollectionAsync(session, cancellationToken);
     }
@@ -151,19 +138,6 @@ public class TestController(
             cancellationToken);
         var bytes = postmanFacade.MakeUtf8Bytes(updates);
         return File(bytes, MediaTypeNames.Application.Json, $"{session.NonUniqueName}.json");
-    }
-
-    private async Task<TgSessionId> ResolveSessionIdAsync(
-        string botToken,
-        long? sessionId,
-        CancellationToken cancellationToken)
-    {
-        if (sessionId is { } id)
-        {
-            return (await facadeWrite.GetSessionAsync(new TgSessionId(id), cancellationToken)).Id;
-        }
-
-        return (await facadeWrite.GetOrCreateSessionAsync(botToken, cancellationToken)).Id;
     }
 }
 

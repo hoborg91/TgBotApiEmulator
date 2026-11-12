@@ -1,4 +1,4 @@
-# TSK-21 WebGUI session list supports multiple sessions per bot token
+# TSK-21 WebGUI session list supports multiple sessions per bot token (Done)
 
 Update the WebGUI session list so it can display and manage multiple sessions that share a single bot token, and allow selecting/switching the active session per token.
 

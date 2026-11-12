@@ -8,6 +8,8 @@
 
 ## Use cases
 
+> **Tip.** File *how-to.md* contains instructions on how to operate the Emulator.
+
 ### USC-1.1. Replay via Postman collection
 
 - **Given** the Emulator is running and the sample bot is aimed at it,
@@ -57,93 +59,3 @@ Example conversation follows.
 **The server** — the back-end part of the Emulator. It provides all the functionality, but can be accessed only via HTTP (e.g., cURL, Postman).
 
 **The web GUI (graphical user interface)** — the front-end part of the Emulator. It provides a visual player for the recorded conversation.
-
-## Toolbox
-
-This section contains console commands intended to be run from the repository root (unless stated otherwise).
-
-### How to launch and stop the Emulator
-
-There are two alternative ways to launch the Emulator.
-
-#### Option 1. Docker Compose
-
-```pwsh
-docker compose -f ./src/docker-compose.yml up
-```
-
-This command blocks the console until you press Ctrl+C, which stops the Emulator. Open another console to run other commands.
-
-#### Option 2. Raw
-
-```pwsh
-dotnet run --project ./src/TgBotApiEmulator/TgBotApiEmulator.csproj
-```
-
-This command runs the server (the back-end part of the Emulator) only. It blocks the console until you press Ctrl+C, which stops the server. Open another console to run other commands.
-
-```pwsh
-npm --prefix ./src/tgbotapiemulator-webgui run dev
-```
-
-This command runs the web GUI (the front-end part of the Emulator) only. It blocks the console until you press Ctrl+C, which stops the web GUI. Open another console to run other commands.
-
-### How to clean the Emulator database
-
-Usually it is easier to delete the database completely:
-
-```pwsh
-rm ./src/TgBotApiEmulator/TgBotApiEmulator.TgBotSession.db
-```
-
-Alternatively one can delete necessary session data using raw SQL queries (e. g., via database administration tool). Path to database: *./src/TgBotApiEmulator/TgBotApiEmulator.TgBotSession.db*.
-
-### How to set the bot token environment variable
-
-Here 1234567891:abcdefghijklmnopqrstuvwxyz123456789 denotes the bot token used in this story; substitute a real token.
-
-```pwsh
-$Env:TOKEN = "1234567891:abcdefghijklmnopqrstuvwxyz123456789"
-```
-
-Run this command once per console window where the token is required. Running the same command again in the same console window has no effect.
-
-### How to switch request retranslation on and off
-
-The Emulator starts in recording proxy mode (request retranslation on) for all bots. The mode can be changed individually for each bot.
-
-> ⚠ Set the bot token environment variable first.
-
-#### Switch request retranslation off
-
-```pwsh
-curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/Emulator"
-```
-
-#### Switch request retranslation on
-
-```pwsh
-curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/RecordingProxy"
-```
-
-### How to run the sample bot
-
-```pwsh
-dotnet run --project ./src/TgBotSample/TgBotSample.csproj -- http://localhost:5134
-```
-
-### How to save the Postman collection of the recorded conversation
-
-```pwsh
-curl -X 'GET' 'http://localhost:5134/test/bot/$Env:TOKEN/postman-collection' -o regressionTest.json
-```
-
-This command saves the file *regressionTest.json* in the repository root (provided it is run from the repository root and completes successfully).
-
-### How to run the Postman collection
-
-> ⚠ Precondition: the Postman CLI must be installed. Given that npm is already installed, one can run npm install -g postman-cli.
-
-```pwsh
-postman collection run regressionTest.json --env-var "emulatorUrl=http://localhost:5134" --env-var "botToken=$Env:TOKEN"
-```

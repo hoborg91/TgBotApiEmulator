@@ -4,7 +4,7 @@
 
 This is a framework for Telegram bot testing. It allows to decouple the part of development and testing cycle from Telegram infrastructure.
 
-> **⚠** For now only `getUpdates` technique of bot interaction is supported.
+> **⚠** For now the Emulator only supports the `getUpdates` (long polling) technique of bot update delivery from Telegram. Webhook-based delivery is not supported.
 
 ## Example: regression testing
 
@@ -38,25 +38,25 @@ dotnet run --project ./src/TgBotApiEmulator/TgBotApiEmulator.csproj
 
 ```pwsh
 $Env:TOKEN = "1234567891:abcdefghijklmnopqrstuvwxyz123456789"
-curl "http://localhost:5134/test/bot/$Env:TOKEN/postman-collection" -o regressionTest.json
+curl 'http://localhost:5134/test/bot/$Env:TOKEN/postman-collection' -o regressionTest.json
 ```
 
 > `1234567891:abcdefghijklmnopqrstuvwxyz123456789` is an example bot token. Replace it with your token.
 
 ### Phase 2. Run regression tests
 
-1. Stop the Emulator to retranslate bot calls to Telegram servers:
+1. Switch the Emulator to Emulator mode (stop retranslation to Telegram servers):
 
 ```pwsh
-curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/Emulator"
+curl -X 'PUT' 'http://localhost:5134/admin/operatingMode/$Env:TOKEN/Emulator'
 ```
 
-> **Tip.** If later you want to restore the retranslation, then run: `curl -X 'PUT' "http://localhost:5134/admin/operatingMode/$Env:TOKEN/RecordingProxy"`
+> **Tip.** If later you want to restore the retranslation, then run: `curl -X 'PUT' 'http://localhost:5134/admin/operatingMode/$Env:TOKEN/RecordingProxy'`
 
 2. Run the Postman collection:
 
 ```pwsh
-postman collection run regressionTest.json --env-var "emulatorUrl=http://localhost:5134" --env-var "botToken=$Env:TOKEN"
+postman collection run regressionTest.json --env-var 'emulatorUrl=http://localhost:5134' --env-var 'botToken=$Env:TOKEN'
 ```
 
 3. Integrate the Postman collection to your development and testing cycle, if necessary.

@@ -1,4 +1,4 @@
-# TSK-16 Allow multiple TgSession rows per bot token hash (schema)
+# TSK-16 Allow multiple TgSession rows per bot token hash (schema) (Done)
 
 Remove the database-level uniqueness that enforces a 1-to-1 mapping between a bot token and a session, so multiple isolated sessions can share one bot token.
 

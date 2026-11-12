@@ -1,4 +1,4 @@
-# DBT-3 DB polling should be replaced by synchronization (Paied off)
+# DBT-3 DB polling should be replaced by synchronization (Paid off)
 
 **As a** developer of TgBotApiEmulator **I find that it is increasingly** expensive (meaning computational resources) **to** frequently query the database during `UpdateReader.WaitForUpdateAsync` method call **because** this strategy spawns plenty of queries, and the most of them return nothing (which is known a priori).
 

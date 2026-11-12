@@ -5,6 +5,7 @@ public interface IEndpointRegistry
     RouteEndpoint GetAssertBotShouldSendMessage();
     RouteEndpoint GetAssertBotShouldSetMessageReaction();
     RouteEndpoint GetEmulatorMessage();
+    RouteEndpoint GetEmulatorSetMessageReaction();
 }
 
 internal sealed class EndpointRegistry(
@@ -12,6 +13,9 @@ internal sealed class EndpointRegistry(
 {
     private readonly Lazy<RouteEndpoint> _emulatorMessage = new(() =>
         endpointDataSources.GetByControllerAndAction("Emulator", "Message"));
+
+    private readonly Lazy<RouteEndpoint> _emulatorSetMessageReaction = new(() =>
+        endpointDataSources.GetByControllerAndAction("Emulator", "SetMessageReaction"));
 
     private readonly Lazy<RouteEndpoint> _assertBotShouldSendMessage = new(() =>
         endpointDataSources.GetByControllerAndAction("Assert", "WaitForMessageFromBot"));
@@ -24,6 +28,8 @@ internal sealed class EndpointRegistry(
     public RouteEndpoint GetAssertBotShouldSetMessageReaction() => _assertBotShouldSetMessageReaction.Value;
 
     public RouteEndpoint GetEmulatorMessage() => _emulatorMessage.Value;
+
+    public RouteEndpoint GetEmulatorSetMessageReaction() => _emulatorSetMessageReaction.Value;
 }
 
 internal static class Ext

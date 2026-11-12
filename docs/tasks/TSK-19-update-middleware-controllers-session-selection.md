@@ -1,4 +1,4 @@
-# TSK-19 Update middleware + controllers to select sessions per bot token
+# TSK-19 Update middleware + controllers to select sessions per bot token (Done)
 
 Update all request handlers that currently call `GetOrCreateSessionAsync(botTokenHash)` so they support explicit session selection (via an optional session id) and otherwise fall back to the current session for the bot token.
 

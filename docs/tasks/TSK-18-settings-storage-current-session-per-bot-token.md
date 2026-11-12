@@ -1,4 +1,4 @@
-# TSK-18 Settings storage: track current session per bot token
+# TSK-18 Settings storage: track current session per bot token (Done)
 
 Extend the settings storage so the "current session" is tracked per bot token hash instead of a single global active session. This lets `GetOrCreateSessionAsync` resume the right session for each token.
 

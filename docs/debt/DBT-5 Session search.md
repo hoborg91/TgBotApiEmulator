@@ -1,10 +1,10 @@
-# DBT-5 Sesssion search
+# DBT-5 Session search
 
 **As a** developer using the Emulator for regression testing **I find that it is increasingly** time consuming **to** search for necessary session **because** I have no search tool.
 
 ## Preliminary analysis
 
-The session list should provide search tool.
+The session list should provide a search tool.
 
 ## Affected use cases
 

@@ -1,4 +1,4 @@
-# DBT-6
+# DBT-6 Message bubbles are awkward
 
 **As a** developer using the Emulator for regression testing, **I find that it is increasingly**
 - frustrating **to** operate the player (messenger emulator screen) **because** message bubbles are very narrow (no matter how wide the emulator screen is) and contain very few symbols per line (thus message bubbles are too big in vertical dimension).

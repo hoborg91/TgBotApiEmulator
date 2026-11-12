@@ -57,24 +57,7 @@ public sealed class BotController(
     {
         var botTokenHash = HashHelper.Hash(botPrefixedToken[3..]);
 
-        var optionalSessionId = GetOptionalSessionId();
-        if (optionalSessionId is { } sessionId)
-        {
-            return (await facadeRead.GetSessionAsync(sessionId, cancellationToken)).Id;
-        }
-
         return (await facadeWrite.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
-    }
-
-    private TgSessionId? GetOptionalSessionId()
-    {
-        if (Request.Query.TryGetValue("sessionId", out var values)
-            && long.TryParse(values.FirstOrDefault(), out var sessionIdValue))
-        {
-            return new TgSessionId(sessionIdValue);
-        }
-
-        return null;
     }
 
     [HttpPost("{botPrefixedToken}/getUpdates")]

@@ -1,4 +1,4 @@
-# TSK-20 API endpoints to list/create/select sessions per bot token
+# TSK-20 API endpoints to list/create/select sessions per bot token (Done)
 
 Add test-only admin endpoints so a user/test can enumerate, create, and switch sessions for a given bot token. These are needed because multiple sessions now share one token and the client must be able to pick which one to use.
 

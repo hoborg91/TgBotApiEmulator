@@ -1,4 +1,4 @@
-# DBT-1 Difficult to operate session list and player (Paied off)
+# DBT-1 Difficult to operate session list and player (Paid off)
 
 **As a** developer using the Emulator for regression testing, **I find that it is increasingly**
 - frustrating **to** navigate between recorded sessions **because** the session list

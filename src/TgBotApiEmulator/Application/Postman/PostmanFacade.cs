@@ -84,6 +84,9 @@ internal sealed class PostmanFacade(
     private PostmanRequestUrl GetPostmanRequestUrlForEmulateMessage(string host) =>
         GetPostmanRequestUrl(host, endpointRegistry.GetEmulatorMessage());
 
+    private PostmanRequestUrl GetPostmanRequestUrlForEmulateSetMessageReaction(string host) =>
+        GetPostmanRequestUrl(host, endpointRegistry.GetEmulatorSetMessageReaction());
+
     private PostmanRequestUrl GetPostmanRequestUrlForAssertBotShouldSendMessage(string host) =>
         GetPostmanRequestUrl(host, endpointRegistry.GetAssertBotShouldSendMessage());
 
@@ -138,6 +141,52 @@ internal sealed class PostmanFacade(
                 []);
         }
 
+        if (update is { MessageReaction: { } userMessageReaction } && (userMessageReaction.User?.IsBot == false))
+        {
+            var emojis = userMessageReaction.NewReaction
+                .OfType<ReactionTypeEmoji>()
+                .Select(rte => rte.Emoji)
+                .ToList();
+            if (emojis.Count == 0 || emojis.Count > 1)
+            {
+                throw new NotSupportedException();
+            }
+
+            return new PostmanSingleItem(
+                $"User sets reaction \"{emojis.Single()}\"",
+                [
+                    new PostmanSingleEvent(
+                        "test",
+                        new PostmanScript(
+                            [
+                                "pm.test(\"Status code is 200\", function () {\r",
+                                "    pm.response.to.have.status(200);\r",
+                                "});",
+                                "let jsonData = pm.response.json();",
+                                $"pm.collectionVariables.set(\"{recentOffsetVariableName}\", jsonData.offset);\r",
+                            ],
+                            "text/javascript",
+                            new object())),
+                ],
+                new PostmanRequest(
+                    "POST",
+                    [],
+                    new PostmanRequestBody(
+                        "raw",
+                        JsonSerializer.Serialize(
+                            new MessageReactionRequest(
+                                botTokenTemplate,
+                                1,
+                                userMessageReaction.MessageId,
+                                emojis.Single()),
+                            _opts1),
+                        new PostmanRequestBodyOptions(
+                            new PostmanRequestBodyOptionsRaw("json")
+                        )),
+                    GetPostmanRequestUrlForEmulateSetMessageReaction(emulatorHostTemplate)),
+                []);
+        }
+
         if (update is { Message: { } botMessage } && (botMessage.From?.IsBot == true))
         {
             var anchor = -87398234; // TODO Bad thing. Refactor.
@@ -188,7 +237,7 @@ internal sealed class PostmanFacade(
                 []);
         }
 
-        if (update is { MessageReaction: { } botMessageReaction } && (botMessageReaction.User?.Username == "bot"))
+        if (update is { MessageReaction: { } botMessageReaction } && (botMessageReaction.User?.IsBot == true))
         {
             var emojis = botMessageReaction.NewReaction
                 .OfType<ReactionTypeEmoji>()

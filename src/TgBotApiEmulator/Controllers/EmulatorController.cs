@@ -46,6 +46,43 @@ public sealed class EmulatorController(
         return new(updateId.Value);
     }
 
+    [HttpPost("setMessageReaction")]
+    public async Task SetMessageReactionAsync(
+        MessageReactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var botTokenHash = HashHelper.Hash(request.BotToken);
+        var sessionId = await ResolveSessionIdAsync(request.SessionId, botTokenHash, cancellationToken);
+
+        var reaction = request.Reaction is { } emoji
+            ? new ReactionType[] { new ReactionTypeEmoji { Emoji = emoji } }
+            : [];
+
+        await facade.RecordUpdateAsync(
+            sessionId,
+            new Update
+            {
+                MessageReaction = new()
+                {
+                    MessageId = (int)request.MessageId,
+                    NewReaction = reaction,
+                    User = new User
+                    {
+                        Id = 11,
+                        Username = "testUser",
+                    },
+                    Chat = new Chat
+                    {
+                        Id = request.ChatId,
+                        Type = Telegram.Bot.Types.Enums.ChatType.Group,
+                    },
+                },
+            },
+            cancellationToken);
+
+        updateNotifier.Notify(sessionId);
+    }
+
     private async Task<TgSessionId> ResolveSessionIdAsync(
         long? sessionId,
         string botTokenHash,
@@ -61,5 +98,7 @@ public sealed class EmulatorController(
 }
 
 public record MessageRequest(string BotToken, long ChatId, string Text, long? SessionId = null);
+
+public record MessageReactionRequest(string BotToken, long ChatId, long MessageId, string Reaction, long? SessionId = null);
 
 public record MessageResult(long Offset);

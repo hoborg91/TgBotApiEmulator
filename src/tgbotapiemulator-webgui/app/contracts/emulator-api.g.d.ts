@@ -456,6 +456,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/test/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/test/sessions/{sessionId}/name": {
         parameters: {
             query?: never;
@@ -497,41 +532,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/test/sessions/{sessionId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    sessionId: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/test/sessions/{sessionId}/updates": {
         parameters: {
             query?: never;
@@ -571,7 +571,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/test/bot/{botToken}/updates": {
+    "/test/bot/{botTokenHash}/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -583,7 +583,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    botToken: string;
+                    botTokenHash: string;
                 };
                 cookie?: never;
             };
@@ -595,64 +595,13 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["Update"][];
-                        "application/json": components["schemas"]["Update"][];
-                        "text/json": components["schemas"]["Update"][];
+                        "text/plain": components["schemas"]["TgSession"][];
+                        "application/json": components["schemas"]["TgSession"][];
+                        "text/json": components["schemas"]["TgSession"][];
                     };
                 };
             };
         };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/test/bot/{botToken}/postman-collection": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    botToken: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/test/bot/{botTokenHash}/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
         put?: never;
         post: {
             parameters: {
@@ -720,6 +669,41 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/bot/{botToken}/postman-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botToken: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -838,6 +822,8 @@ export interface components {
             bot_token?: string | null;
             /** Format: int32 */
             timeout_milliseconds?: number;
+            /** Format: int64 */
+            session_id?: number | null;
         };
         Audio: components["schemas"]["FileBase"] & {
             /** Format: int32 */
@@ -1411,6 +1397,10 @@ export interface components {
             stickers?: components["schemas"]["InputSticker"][] | null;
             sticker_type?: components["schemas"]["StickerType"];
             needs_repainting?: boolean;
+        };
+        CreateSessionRequest: {
+            name?: string | null;
+            bot_name?: string | null;
         };
         DeclineChatJoinRequestRequest: components["schemas"]["BooleanRequestBase"] & {
             chat_id?: components["schemas"]["ChatId"];
@@ -2958,6 +2948,8 @@ export interface components {
             /** Format: int64 */
             chat_id?: number;
             text?: string | null;
+            /** Format: int64 */
+            session_id?: number | null;
         };
         MessageRequestBase: Record<string, never>;
         MessageResult: {
@@ -3248,10 +3240,6 @@ export interface components {
         };
         RenameSessionRequest: {
             name?: string | null;
-        };
-        CreateSessionRequest: {
-            name: string;
-            bot_name?: string | null;
         };
         ReopenForumTopicRequest: components["schemas"]["BooleanRequestBase"] & {
             chat_id?: components["schemas"]["ChatId"];
@@ -4464,12 +4452,13 @@ export interface components {
         TgSession: {
             id?: components["schemas"]["TgSessionId"];
             non_unique_name?: string | null;
-            bot_token_hash?: string | null;
-            bot_name?: string | null;
             /** Format: date-time */
             dtm_created?: string;
             /** Format: date-time */
             dtm_last_updated?: string;
+            bot_token_hash?: string | null;
+            bot_name?: string | null;
+            is_active?: boolean;
         };
         TgSessionId: {
             /** Format: int64 */

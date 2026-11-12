@@ -58,6 +58,9 @@ public class BotControllerGetUpdatesTests
             HashHelper.Hash(Token),
             CancellationToken.None)).Id;
 
+        settingsStorageMock.Setup(s => s.FindCurrentTgSessionAsync(HashHelper.Hash(Token)))
+            .Returns(_sessionId);
+
         var clockMock = new Mock<IClock>();
         var totalWaitingMilliseconds = 0.0;
         clockMock.SetupStopwatchAndDelay(

@@ -1,4 +1,4 @@
-# TSK-17 Facade: add CreateSessionAsync + resolve current session per bot token
+# TSK-17 Facade: add CreateSessionAsync + resolve current session per bot token (Done)
 
 Change session resolution so a bot token can have multiple sessions. `GetOrCreateSessionAsync` returns the current session for the token (creating a default one on first use), while a new `CreateSessionAsync` always creates a fresh isolated session.
 
