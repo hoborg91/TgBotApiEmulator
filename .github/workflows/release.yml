@@ -72,6 +72,10 @@ jobs:
       working-directory: ${{ env.FRONTEND_TEST_CONTEXT }}
       run: npm ci
 
+    - name: Install Playwright browsers
+      working-directory: ${{ env.FRONTEND_TEST_CONTEXT }}
+      run: npx playwright install --with-deps chromium
+
     - name: Test (frontend GUI / Playwright)
       working-directory: ${{ env.FRONTEND_TEST_CONTEXT }}
       run: npm run test:gui
