@@ -1,4 +1,4 @@
-# UST-2 Live updates
+# UST-2 Live updates (Implemented)
 
 ## User story
 
@@ -10,22 +10,22 @@
 
 ## Use cases
 
-### USC-2.1
+### USC-2.1 New update is not visible
 
 - **Given** a recorded session is open in the GUI player,
 - **and** at least one last is not checked (the current offset is less than the offset of the last visible update)
-- **when** the bot under test sends a new update to the Emulator,
-- **then** the new message automatically appears in the player's message list without the user refreshing the page,
+- **when** the bot under test sends a new update (message) to the Emulator,
+- **then** the new message automatically appears in the player's update list without the user refreshing the page,
 - **and** the new message is not checked in navigation panel,
 - **and** the new message is not visible in the player's sreen,
 - **and** the current offset not changed.
 
-### USC-2.2
+### USC-2.2 New update becomes visible immediately
 
 - **Given** a recorded session is open in the GUI player,
 - **and** all updates are checked (either the is no updates at all, or the current offset equals the offset of the last visible update)
-- **when** the bot under test sends a new update to the Emulator,
-- **then** the new message automatically appears in the player's message list without the user refreshing the page,
+- **when** the bot under test sends a new update (message) to the Emulator,
+- **then** the new message automatically appears in the player's update list without the user refreshing the page,
 - **and** the new message is checked in navigation panel,
 - **and** the new message is visible in the player's sreen,
 - **and** the current offset is equal to the offset of the new message update.

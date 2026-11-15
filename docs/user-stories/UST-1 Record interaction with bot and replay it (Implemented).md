@@ -10,7 +10,7 @@
 
 > **Tip.** File *how-to.md* contains instructions on how to operate the Emulator.
 
-### USC-1.1. Replay via Postman collection
+### USC-1.1 Replay via Postman collection
 
 - **Given** the Emulator is running and the sample bot is aimed at it,
 - **and given** the database contains no records for the sample bot token used in this story,
@@ -27,7 +27,7 @@ Example conversation follows.
 - **User**. asdf.
 - **Bot**. Text length: 4.
 
-### USC-1.2. Open session in web GUI
+### USC-1.2 Open session in web GUI
 
 - **Given** the recorded session exists in the Emulator database,
 - **and given** the web GUI is running,
@@ -36,7 +36,7 @@ Example conversation follows.
 - **and** the update navigation panel contains updates corresponding to the recorded session, all unchecked,
 - **and** the messenger emulator screen shows no messages.
 
-### USC-1.3. Replay via web GUI
+### USC-1.3 Replay via web GUI
 
 - **Given** the player is open on the session from USC-1.2,
 - **when** the user selects the first update,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { createApiClient } from "@/app/utils/api"
 import { setActiveSessionByToken } from "@/app/utils/api"
 import type { components } from "@/app/contracts/emulator-api.g"
@@ -10,6 +10,7 @@ import { UpdateBrowser } from "@/app/components/Player/UpdateBrowser"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Download, Trash2, Edit2, Save, X, CheckCircle2 } from "lucide-react"
+import { useSessionUpdates } from "./useSessionUpdates"
 
 type Update = components["schemas"]["Update"]
 
@@ -51,6 +52,8 @@ export function Player({ session, onRename, onDeleteSession, onSetActive }: Play
   const [isDownloading, setIsDownloading] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newName, setNewName] = useState("")
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [shouldScroll, setShouldScroll] = useState(true)
 
   const downloadPostmanCollection = useCallback(async () => {
     if (session?.kind !== "real") return
@@ -157,9 +160,48 @@ export function Player({ session, onRename, onDeleteSession, onSetActive }: Play
     }
   }, [session])
 
+  const isAtBottom = useCallback(() => {
+    const el = containerRef.current
+    if (!el) return false
+    return el.scrollTop + el.clientHeight >= el.scrollHeight - 10
+  }, [])
+
+  const refreshUpdates = useCallback(async () => {
+    if (session?.kind !== "real") return
+
+    const previousOffset = offset
+    const previousUpdatesLength = updates ? updates.length : 0
+    const scrollToBottom = isAtBottom()
+
+    const client = createApiClient()
+    try {
+      const { data, error: err } = await client.GET(
+        "/test/sessions/{sessionId}/updates",
+        { params: { path: { sessionId: session.sessionId } } }
+      )
+      if (err) throw err
+
+      const newUpdates = (data ?? []) as Update[]
+      setUpdates(newUpdates)
+
+      const allChecked =
+        (previousOffset === null && previousUpdatesLength === 0) ||
+        previousOffset === previousUpdatesLength
+
+      setOffset(allChecked ? newUpdates.length : previousOffset)
+      setShouldScroll(scrollToBottom)
+    } catch {
+      setUpdates(null)
+      setError("Failed to load updates.")
+    }
+  }, [session, offset, updates, isAtBottom])
+
   useEffect(() => {
     loadUpdates()
   }, [session, loadUpdates])
+
+  const sessionId = session?.kind === "real" ? session.sessionId : null
+  useSessionUpdates(sessionId, refreshUpdates)
 
   const headerContent = session?.kind === "real" ? (
     <>
@@ -272,7 +314,12 @@ export function Player({ session, onRename, onDeleteSession, onSetActive }: Play
                 {error ?? "Failed to load updates."}
               </div>
             ) : (
-              <MessengerScreen updates={updates ?? []} offset={offset} />
+              <MessengerScreen
+                containerRef={containerRef}
+                updates={updates ?? []}
+                offset={offset}
+                shouldScroll={shouldScroll}
+              />
             )}
             <UpdateBrowser
               updates={updates ?? []}

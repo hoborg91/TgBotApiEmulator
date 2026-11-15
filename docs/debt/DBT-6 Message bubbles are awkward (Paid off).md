@@ -1,4 +1,4 @@
-# DBT-6 Message bubbles are awkward
+# DBT-6 Message bubbles are awkward (Paid off)
 
 **As a** developer using the Emulator for regression testing, **I find that it is increasingly**
 - frustrating **to** operate the player (messenger emulator screen) **because** message bubbles are very narrow (no matter how wide the emulator screen is) and contain very few symbols per line (thus message bubbles are too big in vertical dimension).
@@ -11,4 +11,4 @@
 ## Affected use cases
 
 - UST-1 Record interaction with bot and replay it
-    - USC-1.2 Replay via web GUI
+    - USC-1.3 Replay via web GUI

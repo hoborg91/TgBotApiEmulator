@@ -27,7 +27,8 @@ builder.Services.AddScoped<IBotOperatingModeStorage, BotOperatingModeStorage>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddScoped<ISessionFacadeRead, RecordingProxyFacade>();
-builder.Services.AddScoped<IRecordingProxyFacadeWrite, RecordingProxyFacade>();
+builder.Services.AddScoped<ISessionUpdateFacade, RecordingProxyFacade>();
+builder.Services.AddScoped<IProxyRecordingFacade, RecordingProxyFacade>();
 builder.Services.AddScoped<IOperatingModeFacade, OperatingModeFacade>();
 builder.Services.AddScoped<IClock, Clock>();
 builder.Services.AddScoped<IMyAssert, MyAssert>();
@@ -38,6 +39,8 @@ builder.Services.AddScoped<IPostmanFacade, PostmanFacade>();
 
 builder.Services.AddSingleton<IRetranslatedRequestManager, RetranslatedRequestManager>();
 builder.Services.AddSingleton<IUpdateNotifier, UpdateNotifier>();
+builder.Services.AddSingleton<IUpdateBroadcaster, UpdateBroadcaster>();
+builder.Services.AddSignalR();
 builder.Services.AddScoped<IRecordingMiddlewareUtilities, RecordingMiddlewareUtilities>();
 builder.Services.AddScoped<RecordingProxyMiddleware>();
 
@@ -62,7 +65,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -97,5 +101,7 @@ app.UseMiddleware<RecordingProxyMiddleware>();
 app.UseCors("AllowWebGui");
 
 app.MapControllers();
+
+app.MapHub<SessionUpdatesHub>("/hubs/session-updates");
 
 app.Run();

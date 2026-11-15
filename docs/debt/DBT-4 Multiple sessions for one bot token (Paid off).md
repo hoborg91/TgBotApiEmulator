@@ -1,4 +1,4 @@
-# DBT-4 Multiple sessions for one bot token
+# DBT-4 Multiple sessions for one bot token (Paid off)
 
 **As a** developer using the Emulator for regression testing **I find that it is increasingly** uncomfortable **to** use same bot token for multiple tests **because** I need to clear previous sessions to carry out new clean test.
 

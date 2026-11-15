@@ -9,8 +9,7 @@ namespace TgBotApiEmulator.Controllers;
 [ApiController]
 [Route("emulate")]
 public sealed class EmulatorController(
-    IRecordingProxyFacadeWrite facade,
-    IUpdateNotifier updateNotifier) : ControllerBase
+    ISessionUpdateFacade facade) : ControllerBase
 {
     [HttpPost("message")]
     public async Task<MessageResult> MessageAsync(
@@ -40,8 +39,6 @@ public sealed class EmulatorController(
                 },
             },
             cancellationToken);
-
-        updateNotifier.Notify(sessionId);
 
         return new(updateId.Value);
     }
@@ -79,8 +76,6 @@ public sealed class EmulatorController(
                 },
             },
             cancellationToken);
-
-        updateNotifier.Notify(sessionId);
     }
 
     private async Task<TgSessionId> ResolveSessionIdAsync(

@@ -18,6 +18,7 @@ public class UpdateNotifierIntegrationTests
     private RecordingProxyFacade? _facade;
     private UpdateNotifier? _notifier;
     private UpdateReader? _reader;
+    private Mock<IUpdateBroadcaster>? _broadcasterMock;
     private TgSessionId _sessionA;
     private TgSessionId _sessionB;
 
@@ -39,12 +40,15 @@ public class UpdateNotifierIntegrationTests
         var jsonOptions = new OptionsWrapper<Microsoft.AspNetCore.Mvc.JsonOptions>(new Microsoft.AspNetCore.Mvc.JsonOptions());
         new JsonSerializerConfig().Configure(jsonOptions.Value);
 
+        _broadcasterMock = new Mock<IUpdateBroadcaster>();
+
         _facade = new RecordingProxyFacade(
             storage,
             settingsStorageMock.Object,
-            jsonOptions);
+            jsonOptions,
+            _broadcasterMock.Object);
 
-        _notifier = new UpdateNotifier();
+        _notifier = new UpdateNotifier(_broadcasterMock.Object);
         _reader = new UpdateReader(_facade, new Clock(), _notifier);
 
         _sessionA = (await _facade.GetOrCreateSessionAsync(HashHelper.Hash("tokenA"), CancellationToken.None)).Id;

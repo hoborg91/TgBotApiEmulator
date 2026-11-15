@@ -12,7 +12,7 @@ namespace TgBotApiEmulator.Controllers;
 public class TestController(
     ISessionFacadeRead facade,
     IPostmanFacade postmanFacade,
-    IRecordingProxyFacadeWrite facadeWrite) : Controller
+    ISessionUpdateFacade facadeWrite) : Controller
 {
     [HttpGet("sessions")]
     public async Task<IReadOnlyCollection<TgSession>> GetSessionsAsync(

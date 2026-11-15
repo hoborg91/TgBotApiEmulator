@@ -47,7 +47,7 @@ public interface ISessionFacadeRead
         SessionOrdering[]? orderBy = null);
 }
 
-public interface IRecordingProxyFacadeWrite
+public interface ISessionUpdateFacade
 {
     Task<TgSession> GetOrCreateSessionAsync(
         string botTokenHash,
@@ -61,20 +61,6 @@ public interface IRecordingProxyFacadeWrite
 
     Task<TgSession> GetSessionAsync(
         TgSessionId sessionId,
-        CancellationToken cancellationToken);
-
-    Task RecordBotRequestAsync(
-        TgSessionId sessionId,
-        HttpRequest request,
-        string tgBotApiMethod,
-        string? body,
-        CancellationToken cancellationToken);
-
-    Task RecordTgServerResponseAsync(
-        TgSessionId sessionId,
-        HttpStatusCode statusCode,
-        string content,
-        string tgBotApiMethod,
         CancellationToken cancellationToken);
 
     Task<UpdateOffset> RecordUpdateAsync(
@@ -113,11 +99,30 @@ public interface IRecordingProxyFacadeWrite
         CancellationToken cancellationToken);
 }
 
+public interface IProxyRecordingFacade
+{
+    Task RecordBotRequestAsync(
+        TgSessionId sessionId,
+        HttpRequest request,
+        string tgBotApiMethod,
+        string? body,
+        CancellationToken cancellationToken);
+
+    Task RecordTgServerResponseAsync(
+        TgSessionId sessionId,
+        HttpStatusCode statusCode,
+        string content,
+        string tgBotApiMethod,
+        CancellationToken cancellationToken);
+}
+
 internal sealed class RecordingProxyFacade(
     ITgBotSessionStorage storage,
     ISettingsStorage settingsStorage,
-    IOptions<JsonOptions> jsonOptions) : ISessionFacadeRead, IRecordingProxyFacadeWrite
+    IOptions<JsonOptions> jsonOptions,
+    IUpdateBroadcaster updateBroadcaster) : ISessionFacadeRead, ISessionUpdateFacade, IProxyRecordingFacade
 {
+    private readonly IUpdateBroadcaster _updateBroadcaster = updateBroadcaster;
     public async Task<TgSession> GetOrCreateSessionAsync(
         string botTokenHash,
         CancellationToken cancellationToken)
@@ -331,7 +336,7 @@ internal sealed class RecordingProxyFacade(
             ? new UpdateOffset(update.Id)
             : null;
 
-        return await storage.RecordUpdateAsync(
+        var offset = await storage.RecordUpdateAsync(
             sessionId,
             DateTime.UtcNow,
             content,
@@ -340,6 +345,10 @@ internal sealed class RecordingProxyFacade(
             parentId,
             isProducedByBot,
             cancellationToken);
+
+        _ = _updateBroadcaster.BroadcastAsync(sessionId);
+
+        return offset;
     }
 
     public Task<TgSessionRecordId?> GetLastReceivedUpdateRecordIdAsync(

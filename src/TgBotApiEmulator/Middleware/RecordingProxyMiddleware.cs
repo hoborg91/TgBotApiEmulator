@@ -7,7 +7,8 @@ namespace TgBotApiEmulator.Middleware;
 
 internal sealed class RecordingProxyMiddleware(
     IRecordingMiddlewareUtilities utilities,
-    IRecordingProxyFacadeWrite facade,
+    ISessionUpdateFacade sessionFacade,
+    IProxyRecordingFacade facade,
     IOperatingModeFacade operatingModeFacade,
     IRetranslatedRequestManager abortManager) : IMiddleware
 {
@@ -39,7 +40,7 @@ internal sealed class RecordingProxyMiddleware(
 
         var tgBotApiMethod = GetTgBotApiMethod(path);
 
-        var sessionId = (await facade.GetOrCreateSessionAsync(
+        var sessionId = (await sessionFacade.GetOrCreateSessionAsync(
             botTokenHash,
             cancellationToken)).Id;
 

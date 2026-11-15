@@ -11,7 +11,7 @@ namespace TgBotApiEmulator.Controllers;
 [Route("assert")]
 public class AssertController(
     IMyAssert myAssert,
-    IRecordingProxyFacadeWrite facade) : Controller
+    ISessionUpdateFacade facade) : Controller
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {

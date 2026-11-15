@@ -9,10 +9,9 @@ namespace TgBotApiEmulator.Controllers;
 [ApiController]
 [Route("")]
 public sealed class BotController(
-    IRecordingProxyFacadeWrite facadeWrite,
+    ISessionUpdateFacade facadeWrite,
     ISessionFacadeRead facadeRead,
-    IUpdateReader updateReader,
-    IUpdateNotifier updateNotifier) : ControllerBase
+    IUpdateReader updateReader) : ControllerBase
 {
     [HttpPost("{botPrefixedToken}/getMe")]
     public async Task<ApiResponse<User>> GetMeAsync(
@@ -165,8 +164,6 @@ public sealed class BotController(
             cancellationToken,
             isProducedByBot: true);
 
-        updateNotifier.Notify(sessionId);
-
         return new ApiResponse<Message>
         {
             Ok = true,
@@ -217,8 +214,6 @@ public sealed class BotController(
             },
             cancellationToken,
             isProducedByBot: true);
-
-        updateNotifier.Notify(sessionId);
 
         return new ApiResponse<bool>
         {

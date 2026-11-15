@@ -65,3 +65,30 @@ export async function mockBackendEndpoints(page: Page, sessionId: number = 1) {
     },
   )
 }
+
+/**
+ * Mocks the SignalR negotiate endpoint so the @microsoft/signalr client can
+ * connect to the hub without a live .NET backend.
+ *
+ * After calling this, tests should use `page.waitForEvent("websocket")` to
+ * obtain the WebSocket and send server→client messages (e.g. "NewUpdate").
+ *
+ * @param page - Playwright page
+ */
+export async function mockSignalR(page: Page) {
+  await page.route(`${BACKEND_URL}/hubs/session-updates/negotiate`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        url: "/hubs/session-updates",
+        accessToken: "",
+        availableTransports: [
+          { transport: "WebSockets", transferFormats: ["Text", "Binary"] },
+          { transport: "ServerSentEvents", transferFormats: ["Text"] },
+          { transport: "LongPolling", transferFormats: ["Text"] },
+        ],
+      }),
+    })
+  })
+}

@@ -73,10 +73,18 @@ function buildMessages(updates: Update[]): {
 interface MessengerScreenProps {
   updates: Update[]
   offset: number | null
+  shouldScroll?: boolean
+  containerRef?: React.RefObject<HTMLDivElement | null>
 }
 
-export function MessengerScreen({ updates, offset }: MessengerScreenProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+export function MessengerScreen({
+  updates,
+  offset,
+  shouldScroll = true,
+  containerRef,
+} : MessengerScreenProps) {
+  const internalRef = useRef<HTMLDivElement>(null)
+  const ref = containerRef ?? internalRef
   const visibleUpdates = updates.slice(0, offset ?? 0)
   const { messages, scrollTargets } = useMemo(
     () => buildMessages(visibleUpdates),
@@ -84,7 +92,12 @@ export function MessengerScreen({ updates, offset }: MessengerScreenProps) {
   )
 
   useEffect(() => {
-    if (offset === null || offset <= 0 || visibleUpdates.length === 0) {
+    if (
+      !shouldScroll ||
+      offset === null ||
+      offset <= 0 ||
+      visibleUpdates.length === 0
+    ) {
       return
     }
     const target = scrollTargets[visibleUpdates.length - 1]
@@ -92,25 +105,25 @@ export function MessengerScreen({ updates, offset }: MessengerScreenProps) {
       return
     }
     const el = document.getElementById(`msg-${target}`)
-    if (el && containerRef.current) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    if (el && ref.current) {
+      el.scrollIntoView({ behavior: "smooth", block: "end" })
     }
-  }, [offset, visibleUpdates.length, scrollTargets])
+  }, [offset, visibleUpdates.length, scrollTargets, shouldScroll])
 
   return (
     <div
-      ref={containerRef}
+      ref={ref}
       className="flex-1 overflow-y-auto bg-background shrink-0"
     >
-      <div className="max-w-xs mx-auto py-6">
+      <div className="px-4 py-6">
         {messages.map((message) => (
           <div
-            key={message.id}
+            key={message.updateIndex}
             id={`msg-${message.updateIndex}`}
             className={`mb-4 flex ${message.isBot ? "justify-start" : "justify-end"}`}
           >
             <div
-              className={`max-w-[75%] rounded-lg p-2 text-sm leading-relaxed ${
+              className={`max-w-[90%] rounded-lg p-2 text-sm leading-relaxed ${
                 message.isBot
                   ? "bg-secondary dark:bg-[#111111] text-secondary-foreground"
                   : "bg-primary dark:bg-[#1a1a1a] text-primary-foreground dark:text-white"

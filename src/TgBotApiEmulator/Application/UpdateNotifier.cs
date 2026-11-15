@@ -1,11 +1,14 @@
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 using TgBotApiEmulator.Contracts;
 
 namespace TgBotApiEmulator.Application;
 
-internal sealed class UpdateNotifier : IUpdateNotifier
+internal sealed class UpdateNotifier(
+    IUpdateBroadcaster updateBroadcaster) : IUpdateNotifier
 {
     private readonly ConcurrentDictionary<TgSessionId, List<TaskCompletionSource>> _waiters = new();
+    private readonly IUpdateBroadcaster _updateBroadcaster = updateBroadcaster;
 
     public Task SubscribeAsync(
         TgSessionId sessionId,
@@ -41,5 +44,7 @@ internal sealed class UpdateNotifier : IUpdateNotifier
         {
             tcs.TrySetResult();
         }
+
+        _ = _updateBroadcaster.BroadcastAsync(sessionId);
     }
 }

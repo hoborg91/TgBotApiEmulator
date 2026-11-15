@@ -49,10 +49,13 @@ public class BotControllerGetUpdatesTests
         var jsonOptions = new OptionsWrapper<JsonOptions>(new JsonOptions());
         new JsonSerializerConfig().Configure(jsonOptions.Value);
 
+        var broadcasterMock = new Mock<IUpdateBroadcaster>();
+
         _facade = new RecordingProxyFacade(
             storage,
             settingsStorageMock.Object,
-            jsonOptions);
+            jsonOptions,
+            broadcasterMock.Object);
 
         _sessionId = (await _facade.GetOrCreateSessionAsync(
             HashHelper.Hash(Token),
@@ -68,9 +71,8 @@ public class BotControllerGetUpdatesTests
             v => totalWaitingMilliseconds = v);
 
         var updateReader = new UpdateReader(_facade, clockMock.Object);
-        var updateNotifierMock = new Mock<IUpdateNotifier>();
 
-        _sut = new BotController(_facade, _facade, updateReader, updateNotifierMock.Object);
+        _sut = new BotController(_facade, _facade, updateReader);
     }
 
     [TearDown]
