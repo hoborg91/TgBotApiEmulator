@@ -2,27 +2,22 @@
 
 namespace TgBotApiEmulator.Storage.Contracts.Entities;
 
-internal class Settings
+internal class TgBotSettings
 {
-    public SettingsId Id { get; set; }
+    public TgBotSettingsId Id { get; set; }
     public required string BotTokenHash { get; set; }
+    public string? BotName { get; set; }
+    public long? TgUserId { get; set; }
+    public OperatingMode OperatingMode { get; set; } = OperatingMode.RecordingProxy;
     public bool IsActive { get; set; }
     public DateTime DtmCreated { get; set; }
     public TgSessionId? CurrentTgSessionId { get; set; }
-}
-
-internal class BotOperatingMode
-{
-    public required string BotTokenHash { get; set; }
-    public OperatingMode OperatingMode { get; set; }
 }
 
 internal class TgSession
 {
     public TgSessionId Id { get; set; }
     public required string NonUniqueName { get; set; }
-    public string? BotTokenHash { get; set; }
-    public string? BotName { get; set; }
     public DateTime DtmCreated { get; set; }
     public DateTime DtmLastUpdated { get; set; }
 

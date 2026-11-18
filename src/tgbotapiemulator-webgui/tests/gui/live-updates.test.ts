@@ -50,6 +50,22 @@ async function mockAllEndpoints(page: Page, getUpdateCount: () => number) {
     })
   })
 
+  // Operating mode (GET + PUT) — see mockBackend.ts for why this is required.
+  await page.route(
+    `${BACKEND_URL}/admin/operatingMode/hash/**`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify("RecordingProxy"),
+        })
+      } else {
+        await route.fulfill({ status: 200, body: "" })
+      }
+    },
+  )
+
   await mockSignalR(page)
 }
 

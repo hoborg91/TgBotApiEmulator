@@ -1,5 +1,5 @@
-﻿using System.Globalization;
-using System.Text.Json;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using Telegram.Bot.Types;
 using TgBotApiEmulator.Controllers;
 
@@ -132,7 +132,11 @@ internal sealed class PostmanFacade(
                     new PostmanRequestBody(
                         "raw",
                         JsonSerializer.Serialize(
-                            new MessageRequest(botTokenTemplate, 1, userMessage.Text ?? throw new NotSupportedException()),
+                            new MessageRequest(
+                                botTokenTemplate,
+                                1,
+                                userMessage.Id,
+                                userMessage.Text ?? throw new NotSupportedException("Messages without text are not supported.")),
                             _opts1),
                         new PostmanRequestBodyOptions(
                             new PostmanRequestBodyOptionsRaw("json")
@@ -189,19 +193,16 @@ internal sealed class PostmanFacade(
 
         if (update is { Message: { } botMessage } && (botMessage.From?.IsBot == true))
         {
-            var anchor = -87398234; // TODO Bad thing. Refactor.
-            var body = JsonSerializer.Serialize(
+            var recentOffsetString = "{{" + recentOffsetVariableName + "}}";
+            var body = SerializeWithStringOverrides(
                 new MessageAssert(
                     BotToken: botTokenTemplate,
-                    AfterOffset: anchor,
+                    AfterOffset: 0,
                     ChatId: 1,
                     MessageRegexPattern: botMessage.Text ?? ".*",
-                    TimeoutMilliseconds: 5000
-                ),
-                _opts1);
-            body = body.Replace(
-                anchor.ToString(CultureInfo.InvariantCulture),
-                "{{" + recentOffsetVariableName + "}}");
+                    TimeoutMilliseconds: 5000),
+                _opts1,
+                ("after_offset", recentOffsetString));
 
             return new PostmanSingleItem(
                 $"Bot should reply \"{botMessage.Text}\"",
@@ -250,20 +251,17 @@ internal sealed class PostmanFacade(
             // var emoji = emojis.Single();
             // var s1 = GetEscapeSequence(emoji[0]);
 
-            var anchor = -87398234;
-            var body = JsonSerializer.Serialize(
+            var recentOffsetString = "{{" + recentOffsetVariableName + "}}";
+            var body = SerializeWithStringOverrides(
                 new MessageReactionAssert(
                     BotToken: botTokenTemplate,
-                    AfterOffset: anchor,
+                    AfterOffset: 0,
                     ChatId: 1,
-                    MessageId: anchor,
+                    MessageId: botMessageReaction.MessageId,
                     ReactionType: emojis.Single(),
-                    TimeoutMilliseconds: 5000
-                ),
-                _opts1);
-            body = body.Replace(
-                anchor.ToString(CultureInfo.InvariantCulture),
-                "{{" + recentOffsetVariableName + "}}");
+                    TimeoutMilliseconds: 5000),
+                _opts1,
+                ("after_offset", recentOffsetString));
 
             return new PostmanSingleItem(
                 $"Bot should set reaction",
@@ -299,7 +297,21 @@ internal sealed class PostmanFacade(
                 []);
         }
 
-        throw new NotSupportedException();
+        throw new NotSupportedException($"Update #{update.Id} is not supported.");
+    }
+
+    private static string SerializeWithStringOverrides<T>(
+        T value,
+        JsonSerializerOptions options,
+        params (string PropertyName, string StringValue)[] stringOverrides)
+    {
+        var node = (JsonObject)JsonNode.Parse(JsonSerializer.Serialize(value, options))!;
+        foreach (var (propertyName, stringValue) in stringOverrides)
+        {
+            node[propertyName] = stringValue;
+        }
+
+        return JsonSerializer.Serialize(node, options);
     }
 
     private static string GetEscapeSequence(char c)

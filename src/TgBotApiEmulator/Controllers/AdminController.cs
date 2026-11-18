@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TgBotApiEmulator.Application;
 using TgBotApiEmulator.Contracts;
+using TgBotApiEmulator.Utilities;
 
 namespace TgBotApiEmulator.Controllers;
 
@@ -10,22 +11,43 @@ public sealed class AdminController(
     IOperatingModeFacade operatingModeFacade) : ControllerBase
 {
     [HttpGet("operatingMode/{botToken}")]
+    [HttpGet("operatingMode/hash/{botTokenHash}")]
     public async Task<OperatingMode> GetOperatingModeAsync(
-        string botToken,
+        [FromRoute] string? botToken,
+        [FromRoute] string? botTokenHash,
         CancellationToken cancellationToken)
     {
-        return await operatingModeFacade.GetOperatingModeAsync(botToken, cancellationToken);
+        var hash = ResolveHash(botToken, botTokenHash);
+        return await operatingModeFacade.GetOperatingModeAsync(hash, cancellationToken);
     }
 
     [HttpPut("operatingMode/{botToken}/{operatingMode}")]
+    [HttpPut("operatingMode/hash/{botTokenHash}/{operatingMode}")]
     public async Task<OperatingMode> SetOperatingModeAsync(
-        [FromRoute] string botToken,
+        [FromRoute] string? botToken,
+        [FromRoute] string? botTokenHash,
         [FromRoute] OperatingMode operatingMode,
         CancellationToken cancellationToken)
     {
-        await operatingModeFacade.SetOperatingModeAsync(botToken, operatingMode, cancellationToken);
+        var hash = ResolveHash(botToken, botTokenHash);
+        await operatingModeFacade.SetOperatingModeAsync(hash, operatingMode, cancellationToken);
 
         return operatingMode;
+    }
+
+    private static string ResolveHash(string? botToken, string? botTokenHash)
+    {
+        if (!string.IsNullOrWhiteSpace(botTokenHash))
+        {
+            return botTokenHash;
+        }
+
+        if (!string.IsNullOrWhiteSpace(botToken))
+        {
+            return HashHelper.Hash(botToken);
+        }
+
+        throw new ArgumentException("Either botToken or botTokenHash must be specified.");
     }
 
     // [HttpPut("currentSession/{sessionId:long}")]

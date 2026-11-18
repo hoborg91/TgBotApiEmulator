@@ -12,7 +12,7 @@ export async function createSessionByTokenAndSetActive(
   botTokenHash: string,
   name: string,
 ) {
-  return client.POST("/test/bot/{botTokenHash}/sessions", {
+  return client.POST("/test/bot/hash/{botTokenHash}/sessions", {
     params: { path: { botTokenHash } },
     body: { name },
   });
@@ -23,7 +23,7 @@ export async function setActiveSessionByToken(
   botTokenHash: string,
   sessionId: number,
 ) {
-  return client.POST("/test/bot/{botTokenHash}/sessions/{sessionId}/set-active", {
+  return client.POST("/test/bot/hash/{botTokenHash}/sessions/{sessionId}/set-active", {
     params: { path: { botTokenHash, sessionId } },
   });
 }

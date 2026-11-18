@@ -20,7 +20,7 @@ public class TestController(
     {
         var sessions = await facade.GetSessionsAsync(cancellationToken);
 
-        return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName, s.DtmCreated, s.DtmLastUpdated, s.BotTokenHash, s.BotName, s.IsActive))];
+        return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName, s.DtmCreated, s.DtmLastUpdated, s.BotTokenHash, s.BotName, s.TgUserId, s.IsActive))];
     }
 
     [HttpDelete("sessions/{sessionId}")]
@@ -70,54 +70,80 @@ public class TestController(
         return updates;
     }
 
-    [HttpGet("bot/{botTokenHash}/sessions")]
+    [HttpGet("bot/{botToken}/sessions")]
+    [HttpGet("bot/hash/{botTokenHash}/sessions")]
     public async Task<IReadOnlyCollection<TgSession>> GetSessionsByTokenAsync(
-        string botTokenHash,
+        [FromRoute] string? botToken,
+        [FromRoute] string? botTokenHash,
         CancellationToken cancellationToken)
     {
+        var hash = ResolveHash(botToken, botTokenHash);
         var sessions = await facade.GetSessionsAsync(
             cancellationToken,
-            botTokenHash: botTokenHash);
+            botTokenHash: hash);
 
-        return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName, s.DtmCreated, s.DtmLastUpdated, s.BotTokenHash, s.BotName, s.IsActive))];
+        return [.. sessions.Select(s => new TgSession(s.Id, s.NonUniqueName, s.DtmCreated, s.DtmLastUpdated, s.BotTokenHash, s.BotName, s.TgUserId, s.IsActive))];
     }
 
-    [HttpPost("bot/{botTokenHash}/sessions")]
+    [HttpPost("bot/{botToken}/sessions")]
+    [HttpPost("bot/hash/{botTokenHash}/sessions")]
     public async Task<TgSession> CreateSessionByTokenAndSetActiveAsync(
-        string botTokenHash,
+        [FromRoute] string? botToken,
+        [FromRoute] string? botTokenHash,
         [FromBody] CreateSessionRequest request,
         CancellationToken cancellationToken)
     {
+        var hash = ResolveHash(botToken, botTokenHash);
         var session = await facadeWrite.CreateSessionAsync(
-            botTokenHash,
+            hash,
             request.Name,
             request.BotName,
             cancellationToken);
-        return new TgSession(session.Id, session.NonUniqueName, session.DtmCreated, session.DtmLastUpdated, session.BotTokenHash, session.BotName, session.IsActive);
+        return new TgSession(session.Id, session.NonUniqueName, session.DtmCreated, session.DtmLastUpdated, session.BotTokenHash, session.BotName, session.TgUserId, session.IsActive);
     }
 
-    [HttpPost("bot/{botTokenHash}/sessions/{sessionId}/set-active")]
+    [HttpPost("bot/{botToken}/sessions/{sessionId}/set-active")]
+    [HttpPost("bot/hash/{botTokenHash}/sessions/{sessionId}/set-active")]
     public async Task<IActionResult> SetActiveSessionByTokenAsync(
-        string botTokenHash,
+        [FromRoute] string? botToken,
+        [FromRoute] string? botTokenHash,
         long sessionId,
         CancellationToken cancellationToken)
     {
+        var hash = ResolveHash(botToken, botTokenHash);
         await facadeWrite.SetCurrentSessionAsync(
-            botTokenHash,
+            hash,
             new TgSessionId(sessionId),
             cancellationToken);
         return Ok();
     }
 
     [HttpGet("bot/{botToken}/postman-collection")]
+    [HttpGet("bot/hash/{botTokenHash}/postman-collection")]
     public async Task<IActionResult> GetPostmanCollectionByTokenAsync(
-        [FromRoute] string botToken,
+        [FromRoute] string? botToken,
+        [FromRoute] string? botTokenHash,
         CancellationToken cancellationToken)
     {
-        var botTokenHash = HashHelper.Hash(botToken);
-        var resolvedSessionId = (await facadeWrite.GetOrCreateSessionAsync(botTokenHash, cancellationToken)).Id;
+        var hash = ResolveHash(botToken, botTokenHash);
+        var resolvedSessionId = (await facadeWrite.GetOrCreateSessionAsync(hash, cancellationToken)).Id;
         var session = await facade.GetSessionAsync(resolvedSessionId, cancellationToken);
         return await GetPostmanCollectionAsync(session, cancellationToken);
+    }
+
+    private static string ResolveHash(string? botToken, string? botTokenHash)
+    {
+        if (!string.IsNullOrWhiteSpace(botTokenHash))
+        {
+            return botTokenHash;
+        }
+
+        if (!string.IsNullOrWhiteSpace(botToken))
+        {
+            return HashHelper.Hash(botToken);
+        }
+
+        throw new ArgumentException("Either botToken or botTokenHash must be specified.");
     }
 
     [HttpGet("sessions/{sessionId}/postman-collection")]
@@ -148,6 +174,7 @@ public record TgSession(
     DateTime DtmLastUpdated,
     string? BotTokenHash,
     string? BotName,
+    long? TgUserId,
     bool IsActive);
 
 public record CreateSessionRequest(

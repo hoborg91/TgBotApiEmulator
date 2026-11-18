@@ -18,36 +18,79 @@ internal sealed class SettingsStorage(
         TgSessionId tgSessionId,
         CancellationToken cancellationToken)
     {
-        await (dbContext.Settings
+        await (dbContext.TgBotSettings
             ?? throw new Exception())
             .Where(s => s.BotTokenHash == botTokenHash && s.IsActive)
             .ForEachAsync(
                 s => s.IsActive = false,
                 cancellationToken);
 
-        dbContext.Settings.Add(new Settings
+        dbContext.TgBotSettings.Add(new TgBotSettings
         {
             BotTokenHash = botTokenHash,
             CurrentTgSessionId = tgSessionId,
             DtmCreated = DateTime.UtcNow,
             IsActive = true,
+            OperatingMode = OperatingMode.RecordingProxy,
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        // The active session for this bot changed. Any in-flight retranslated
-        // request (for example a long-polling getUpdates) captured the previous
-        // session id before the switch and would record its response under the
-        // stale session. Abort it so the bot retries and resolves to the new
-        // active session instead.
         abortManager.AbortPendingRequests(botTokenHash);
 
         return tgSessionId;
     }
 
-    private Settings? GetActiveSettings(string botTokenHash)
+    public async Task<OperatingMode?> FindOperatingModeAsync(
+        string botTokenHash,
+        CancellationToken cancellationToken)
     {
-        var activeSettingsItems = (dbContext.Settings
+        var settings = GetActiveSettings(botTokenHash);
+        return settings?.OperatingMode;
+    }
+
+    public async Task SetOperatingModeAsync(
+        string botTokenHash,
+        OperatingMode operatingMode,
+        CancellationToken cancellationToken)
+    {
+        var settings = GetActiveSettings(botTokenHash);
+
+        if (settings == null)
+        {
+            (dbContext.TgBotSettings ?? throw new Exception()).Add(new TgBotSettings
+            {
+                BotTokenHash = botTokenHash,
+                CurrentTgSessionId = null,
+                DtmCreated = DateTime.UtcNow,
+                IsActive = true,
+                OperatingMode = operatingMode,
+            });
+        }
+        else
+        {
+            settings.OperatingMode = operatingMode;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (operatingMode == OperatingMode.Emulator)
+        {
+            abortManager.AbortPendingRequests(botTokenHash);
+        }
+    }
+
+    public TgBotSettings? FindSettingsBySessionId(
+        TgSessionId sessionId)
+    {
+        return (dbContext.TgBotSettings
+            ?? throw new Exception())
+            .FirstOrDefault(s => s.CurrentTgSessionId == sessionId);
+    }
+
+    private TgBotSettings? GetActiveSettings(string botTokenHash)
+    {
+        var activeSettingsItems = (dbContext.TgBotSettings
             ?? throw new Exception())
             .Where(s => s.BotTokenHash == botTokenHash && s.IsActive)
             .ToList();

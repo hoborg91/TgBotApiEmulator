@@ -64,6 +64,24 @@ export async function mockBackendEndpoints(page: Page, sessionId: number = 1) {
       })
     },
   )
+
+  // Operating mode (GET + PUT). loadSessions() fetches the mode for every
+  // bot token hash; without a mock the unmocked request fails, openapi-fetch
+  // throws, and the catch block wipes the just-loaded sessions.
+  await page.route(
+    `${BACKEND_URL}/admin/operatingMode/hash/**`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify("RecordingProxy"),
+        })
+      } else {
+        await route.fulfill({ status: 200, body: "" })
+      }
+    },
+  )
 }
 
 /**

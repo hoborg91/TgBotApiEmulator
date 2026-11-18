@@ -25,6 +25,7 @@ public sealed class EmulatorController(
             {
                 Message = new Message
                 {
+                    Id = request.MesasgeId,
                     Text = request.Text,
                     From = new User
                     {
@@ -92,7 +93,12 @@ public sealed class EmulatorController(
     }
 }
 
-public record MessageRequest(string BotToken, long ChatId, string Text, long? SessionId = null);
+public record MessageRequest(
+    string BotToken,
+    long ChatId,
+    int MesasgeId,
+    string Text,
+    long? SessionId = null);
 
 public record MessageReactionRequest(string BotToken, long ChatId, long MessageId, string Reaction, long? SessionId = null);
 

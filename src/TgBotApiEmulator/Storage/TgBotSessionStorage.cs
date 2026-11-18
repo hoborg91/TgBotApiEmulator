@@ -36,7 +36,14 @@ internal sealed class TgBotSessionStorage(
         }
 
         query = ApplyStringFilterIfAny(query, s => s.NonUniqueName, nonUniqueName);
-        query = ApplyStringFilterIfAny(query, s => s.BotTokenHash, botTokenHash);
+
+        if (!string.IsNullOrWhiteSpace(botTokenHash))
+        {
+            var settingsHash = botTokenHash;
+            var settingsDbSet = dbContext.TgBotSettings ?? throw new Exception();
+            query = query.Where(s => settingsDbSet
+                .Any(st => st.BotTokenHash == settingsHash && st.CurrentTgSessionId == s.Id));
+        }
 
         query = ApplyDateTimeIntervalFilterIfAny(query, s => s.DtmCreated, dtmCreatedBetweenIncluding);
         query = ApplyDateTimeIntervalFilterIfAny(query, s => s.DtmLastUpdated, dtmLastUpdatedBetweenIncluding);
@@ -127,7 +134,10 @@ internal sealed class TgBotSessionStorage(
 
         if (!string.IsNullOrWhiteSpace(botTokenHash))
         {
-            query = query.Where(s => s.BotTokenHash == botTokenHash);
+            var settingsHash = botTokenHash;
+            var settingsDbSet = dbContext.TgBotSettings ?? throw new Exception();
+            query = query.Where(s => settingsDbSet
+                .Any(st => st.BotTokenHash == settingsHash && st.CurrentTgSessionId == s.Id));
         }
 
         return query.CountAsync(cancellationToken);
@@ -137,16 +147,12 @@ internal sealed class TgBotSessionStorage(
         GetTgSessionByIdInternal(tgSessionId);
 
     public TgSession CreateTgSession(
-        string nonUniqueName,
-        string? botTokenHash = null,
-        string? botName = null)
+        string nonUniqueName)
     {
         var now = timeProvider.GetUtcNow().DateTime;
         var session = new TgSession
         {
             NonUniqueName = nonUniqueName,
-            BotTokenHash = botTokenHash,
-            BotName = botName,
             DtmCreated = now,
             DtmLastUpdated = now,
         };
@@ -174,15 +180,35 @@ internal sealed class TgBotSessionStorage(
         return session;
     }
 
-    public async Task UpdateTgSessionBotNameAsync(
+    public async Task UpdateBotCredentialsAsync(
         TgSessionId sessionId,
-        string botName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? botName = null,
+        long? tgUserId = null)
     {
-        var session = GetTgSessionByIdInternal(sessionId);
+        if (botName is null && tgUserId is null)
+        {
+            return;
+        }
 
-        session.BotName = botName;
-        session.DtmLastUpdated = timeProvider.GetUtcNow().DateTime;
+        var settings = (dbContext.TgBotSettings
+            ?? throw new Exception())
+            .FirstOrDefault(s => s.CurrentTgSessionId == sessionId);
+
+        if (settings is null)
+        {
+            return;
+        }
+
+        if (botName is not null)
+        {
+            settings.BotName = botName;
+        }
+
+        if (tgUserId is not null)
+        {
+            settings.TgUserId = tgUserId;
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -205,19 +231,16 @@ internal sealed class TgBotSessionStorage(
 
         // The deleted session becomes not active: clear CurrentTgSessionId for the
         // bot associated with this session, if it was the current one.
-        if (session.BotTokenHash is { } hash)
-        {
-            var settings = (dbContext.Settings
-                ?? throw new Exception())
-                .Where(s => s.BotTokenHash == hash && s.IsActive)
-                .ToList();
+        var settings = (dbContext.TgBotSettings
+            ?? throw new Exception())
+            .Where(s => s.CurrentTgSessionId == sessionId)
+            .ToList();
 
-            foreach (var setting in settings)
+        foreach (var setting in settings)
+        {
+            if (setting.CurrentTgSessionId == sessionId)
             {
-                if (setting.CurrentTgSessionId == sessionId)
-                {
-                    setting.CurrentTgSessionId = null;
-                }
+                setting.CurrentTgSessionId = null;
             }
         }
 

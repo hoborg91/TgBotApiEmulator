@@ -24,7 +24,7 @@ internal interface ITgBotSessionStorage
     /// <summary>
     /// Soft-deletes a session: marks it as deleted and not active. The record is kept
     /// in the database. If the session is the current one for its bot,
-    /// <see cref="Settings.CurrentTgSessionId"/> is cleared for that bot so the session
+    /// <see cref="TgBotSettings.CurrentTgSessionId"/> is cleared for that bot so the session
     /// becomes inactive and a new session can be created later.
     /// Returns true if the session was found and deleted, false if not found.
     /// </summary>
@@ -36,19 +36,18 @@ internal interface ITgBotSessionStorage
         TgSessionId tgSessionId);
 
     TgSession CreateTgSession(
-        string nonUniqueName,
-        string? botTokenHash = null,
-        string? botName = null);
+        string nonUniqueName);
 
     Task<TgSession?> RenameTgSessionAsync(
         TgSessionId sessionId,
         string newName,
         CancellationToken cancellationToken);
 
-    Task UpdateTgSessionBotNameAsync(
+    Task UpdateBotCredentialsAsync(
         TgSessionId sessionId,
-        string botName,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? botName = null,
+        long? tgUserId = null);
 
     // Task<IEnumerable<TgSessionRecord>> GetOrderedRecordsAsync(
     //     CancellationToken cancellationToken,

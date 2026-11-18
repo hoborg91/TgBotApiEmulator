@@ -26,7 +26,7 @@ internal sealed class RecordingProxyMiddleware(
             return;
         }
 
-        var operatingMode = await operatingModeFacade.GetOperatingModeAsync(botToken!, cancellationToken);
+        var operatingMode = await operatingModeFacade.GetOperatingModeAsync(HashHelper.Hash(botToken!), cancellationToken);
 
         if (operatingMode == OperatingMode.Emulator)
         {

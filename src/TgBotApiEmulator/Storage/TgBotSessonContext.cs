@@ -12,9 +12,7 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new();
 
-    public DbSet<Settings>? Settings { get; set; }
-
-    public DbSet<BotOperatingMode>? BotOperatingModes { get; set; }
+    public DbSet<TgBotSettings>? TgBotSettings { get; set; }
 
     public DbSet<TgSession>? TgSessions { get; set; }
 
@@ -56,11 +54,9 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
         // modelBuilder.Entity<TgSessionUpdateRecord>().Property(e => e.Offset);//.ValueGeneratedOnAdd();
 
         modelBuilder.Entity<TgSession>().Property(e => e.Id).ValueGeneratedOnAdd();
-        modelBuilder.Entity<TgSession>().HasIndex(e => e.BotTokenHash);
 
-        modelBuilder.Entity<Settings>().Property(e => e.Id).ValueGeneratedOnAdd();
-
-        modelBuilder.Entity<BotOperatingMode>().HasKey(e => e.BotTokenHash);
+        modelBuilder.Entity<TgBotSettings>().Property(e => e.Id).ValueGeneratedOnAdd();
+        modelBuilder.Entity<TgBotSettings>().HasIndex(e => e.BotTokenHash).IsUnique();
 
         modelBuilder
             .HasDbFunction(() => StronglyTypedIdValue.InnerValue(default(TgSessionRecordId)))
@@ -94,7 +90,7 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
     {
         // configurationBuilder.Properties<UpdateOffset>().HaveConversion<UpdateOffsetConverter>();
         configurationBuilder.Properties<TgSessionId>().HaveConversion<TgSessionIdConverter>();
-        configurationBuilder.Properties<SettingsId>().HaveConversion<SettingsIdConverter>();
+        configurationBuilder.Properties<TgBotSettingsId>().HaveConversion<SettingsIdConverter>();
         configurationBuilder.Properties<TgSessionRecordId>().HaveConversion<TgSessionRecordIdConverter>();
         configurationBuilder.Properties<UpdateOffset>().HaveConversion<UpdateOffsetConverter>();
     }
@@ -115,7 +111,7 @@ internal sealed class TgBotSessionContext(DbContextOptions<TgBotSessionContext> 
         }
     }
 
-    private class SettingsIdConverter : ValueConverter<SettingsId, long>
+    private class SettingsIdConverter : ValueConverter<TgBotSettingsId, long>
     {
         public SettingsIdConverter()
             : base(v => v.Value, v => new(v))

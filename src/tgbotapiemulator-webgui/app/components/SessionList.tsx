@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { Plus, X, Save, RefreshCw } from "lucide-react"
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react"
 import type { TgSession } from "@/app/page"
+
+type OperatingMode = "RecordingProxy" | "Emulator"
 
 interface SessionListProps {
   sessions: TgSession[] | null | undefined
@@ -18,6 +21,8 @@ interface SessionListProps {
   onReload: () => void
   collapsed: boolean
   onToggleCollapse: (collapsed: boolean) => void
+  operatingModes: Record<string, OperatingMode>
+  onToggleOperatingMode: (botTokenHash: string, targetMode: OperatingMode) => void
 }
 
 function formatDateTime(value: string): string {
@@ -46,6 +51,8 @@ export function SessionList({
   collapsed,
   onToggleCollapse,
   onSelectMocked,
+  operatingModes,
+  onToggleOperatingMode,
 }: SessionListProps) {
   const list = sessions ?? []
   const [creatingToken, setCreatingToken] = useState<string | null>(null)
@@ -207,6 +214,24 @@ export function SessionList({
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
+                  {botTokenHash !== null && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground leading-none">
+                        {operatingModes[botTokenHash] ?? "RecordingProxy"}
+                      </span>
+                      <Switch
+                        checked={operatingModes[botTokenHash] === "RecordingProxy"}
+                        onCheckedChange={(checked) =>
+                          onToggleOperatingMode(
+                            botTokenHash,
+                            checked ? "RecordingProxy" : "Emulator",
+                          )
+                        }
+                        className="h-4 w-7"
+                        aria-label="Retranslation mode"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {!groupCollapsed && (

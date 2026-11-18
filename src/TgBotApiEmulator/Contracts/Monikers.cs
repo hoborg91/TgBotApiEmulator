@@ -1,6 +1,6 @@
 ﻿namespace TgBotApiEmulator.Contracts;
 
-public readonly record struct SettingsId(long Value)
+public readonly record struct TgBotSettingsId(long Value)
 {
     public override string ToString() => Value.ToString();
 }

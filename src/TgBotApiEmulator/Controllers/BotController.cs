@@ -16,7 +16,7 @@ public sealed class BotController(
     [HttpPost("{botPrefixedToken}/getMe")]
     public async Task<ApiResponse<User>> GetMeAsync(
 #pragma warning disable IDE0060 // Remove unused parameter
-        string botPrefixedToken)
+        [FromRoute] string botPrefixedToken)
 #pragma warning restore IDE0060 // Remove unused parameter
     {
         await Task.CompletedTask;
@@ -37,9 +37,7 @@ public sealed class BotController(
     [HttpPost("{botPrefixedToken}/deleteWebhook")]
     public async Task<ApiResponse<bool>> DeleteWebhookAsync(
 #pragma warning disable IDE0060 // Remove unused parameter
-        string botPrefixedToken,
-#pragma warning restore IDE0060 // Remove unused parameter
-#pragma warning disable IDE0060 // Remove unused parameter
+        [FromRoute] string botPrefixedToken,
         bool? drop_pending_updates)
 #pragma warning restore IDE0060 // Remove unused parameter
     {
@@ -52,7 +50,21 @@ public sealed class BotController(
         };
     }
 
-    private async Task<TgSessionId> GetSessionIdAsync(string botPrefixedToken, CancellationToken cancellationToken)
+    [HttpPost("{botPrefixedToken}/setMyCommands")]
+    public async Task<ApiResponse<bool>> SetMyCommandsAsync(
+#pragma warning disable IDE0060 // Remove unused parameter
+        [FromRoute] string botPrefixedToken,
+        [FromBody] Telegram.Bot.Requests.SetMyCommandsRequest request)
+#pragma warning restore IDE0060 // Remove unused parameter
+    {
+        return new ApiResponse<bool>
+        {
+            Ok = true,
+            Result = true,
+        };
+    }
+
+    private async Task<TgSessionId> GetSessionIdAsync([FromRoute] string botPrefixedToken, CancellationToken cancellationToken)
     {
         var botTokenHash = HashHelper.Hash(botPrefixedToken[3..]);
 
@@ -61,7 +73,7 @@ public sealed class BotController(
 
     [HttpPost("{botPrefixedToken}/getUpdates")]
     public async Task<ApiResponse<Update[]>> GetUpdatesAsync(
-        string botPrefixedToken,
+        [FromRoute] string botPrefixedToken,
         Telegram.Bot.Requests.GetUpdatesRequest request,
         CancellationToken cancellationToken)
     {
@@ -125,7 +137,7 @@ public sealed class BotController(
 
     [HttpPost("{botPrefixedToken}/sendMessage")]
     public async Task<ApiResponse<Message>> SendMessageAsync(
-        string botPrefixedToken,
+        [FromRoute] string botPrefixedToken,
         Telegram.Bot.Requests.SendMessageRequest request,
         CancellationToken cancellationToken)
     {
@@ -173,7 +185,7 @@ public sealed class BotController(
 
     [HttpPost("{botPrefixedToken}/setMessageReaction")]
     public async Task<ApiResponse<bool>> SetMessageReaction(
-        string botPrefixedToken,
+        [FromRoute] string botPrefixedToken,
         Telegram.Bot.Requests.SetMessageReactionRequest request,
         CancellationToken cancellationToken)
     {

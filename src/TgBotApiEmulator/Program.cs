@@ -22,7 +22,6 @@ builder.Services.AddDbContext<TgBotSessionContext>(options =>
         .UseSqlite(builder.Configuration.GetConnectionString("TgBotSessionContextSQLite")));
 builder.Services.AddScoped<ITgBotSessionStorage, TgBotSessionStorage>();
 builder.Services.AddScoped<ISettingsStorage, SettingsStorage>();
-builder.Services.AddScoped<IBotOperatingModeStorage, BotOperatingModeStorage>();
 
 builder.Services.AddHttpClient();
 
@@ -95,6 +94,18 @@ var settings = startupScope.ServiceProvider.GetRequiredService<IOptions<TgBotApi
 
 var dbContext = startupScope.ServiceProvider.GetRequiredService<TgBotSessionContext>();
 await dbContext.Database.EnsureCreatedAsync(startupCts.Token);
+
+// app.Use(async (context, next) =>
+// {
+//     var initialBody = context.Request.Body;
+
+//     using var bodyReader = new StreamReader(context.Request.Body);
+//     var body = await bodyReader.ReadToEndAsync();
+//     logger.LogInformation("Request body: {RequestBody}", body);
+//     context.Request.Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body));
+//     await next.Invoke();
+//     context.Request.Body = initialBody;
+// });
 
 app.UseMiddleware<RecordingProxyMiddleware>();
 

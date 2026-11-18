@@ -45,8 +45,10 @@ internal static class Ext
 
         return endpoints.Single(e =>
         {
-            var descriptor = e.Metadata.OfType<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>().Single();
-            return descriptor.ControllerName == controllerName && descriptor.ActionName == actionName;
+            var descriptor = e.Metadata.OfType<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>().SingleOrDefault();
+            return descriptor != null &&
+                descriptor.ControllerName == controllerName &&
+                descriptor.ActionName == actionName;
         });
     }
 }

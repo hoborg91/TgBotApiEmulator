@@ -15,6 +15,8 @@ export type TgSession = {
   is_active?: boolean
 }
 
+export type OperatingMode = "RecordingProxy" | "Emulator"
+
 export type SelectedSession =
   | { kind: "none" }
   | {
@@ -33,6 +35,9 @@ export default function MainPage() {
     TgSession[] | null | undefined
   >(undefined)
   const [sessionsError, setSessionsError] = useState<string | null>(null)
+  const [operatingModes, setOperatingModes] = useState<Record<string, OperatingMode>>(
+    {},
+  )
   const [selected, setSelected] = useState<SelectedSession>({
     kind: "none",
   })
@@ -72,7 +77,27 @@ export default function MainPage() {
         setSessionsError("Loading sessions failed")
         return
       }
-      setSessions((data ?? []) as TgSession[])
+      const sessionsList = (data ?? []) as TgSession[]
+      setSessions(sessionsList)
+
+      const modes: Record<string, OperatingMode> = {}
+      const hashes = [
+        ...new Set(
+          sessionsList.map((s) => s.bot_token_hash).filter((h): h is string => h !== null),
+        ),
+      ]
+      await Promise.all(
+        hashes.map(async (hash) => {
+          const { data: modeData, error: modeError } = await client.GET(
+            "/admin/operatingMode/hash/{botTokenHash}",
+            { params: { path: { botTokenHash: hash } } },
+          )
+          if (!modeError && modeData) {
+            modes[hash] = modeData as OperatingMode
+          }
+        }),
+      )
+      setOperatingModes(modes)
     } catch {
       setSessions(null)
       setSessionsError("Loading sessions failed")
@@ -186,6 +211,22 @@ export default function MainPage() {
     [],
   )
 
+  const handleToggleOperatingMode = useCallback(
+    async (botTokenHash: string, targetMode: OperatingMode) => {
+      const client = createApiClient()
+      const { error } = await client.PUT("/admin/operatingMode/hash/{botTokenHash}/{operatingMode}", {
+        params: { path: { botTokenHash, operatingMode: targetMode } },
+      })
+      if (error) {
+        setSessionsError("Failed to switch operating mode")
+        return
+      }
+      setOperatingModes((prev) => ({ ...prev, [botTokenHash]: targetMode }))
+      setSessionsError(null)
+    },
+    [],
+  )
+
   const isLoading = sessions === undefined
 
   return (
@@ -200,6 +241,8 @@ export default function MainPage() {
         onReload={loadSessions}
         collapsed={sessionListCollapsed}
         onToggleCollapse={setSessionListCollapsed}
+        operatingModes={operatingModes}
+        onToggleOperatingMode={handleToggleOperatingMode}
       />
       <Player
         session={selected.kind === "none" ? null : selected}

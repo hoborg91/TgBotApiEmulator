@@ -53,5 +53,9 @@ async Task OnMessage(Message msg, UpdateType type)
 
     Console.WriteLine($"Received message: {text}");
 
+    if (text.Equals("reaction", StringComparison.InvariantCultureIgnoreCase))
+    {
+        await bot.SetMessageReaction(msg.Chat.Id, msg.MessageId, [(ReactionTypeEmoji)"👍"]);
+    }
     await bot.SendMessage(msg.Chat, $"Text length: {text.Length}.");
 }

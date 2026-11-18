@@ -1,8 +1,11 @@
-﻿using System.Net;
+﻿using System.Linq;
+using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Telegram.Bot.Requests;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 using TgBotApiEmulator.Contracts;
 using TgBotApiEmulator.Exceptions;
 using TgBotApiEmulator.Storage.Contracts;
@@ -18,6 +21,7 @@ public record TgSession(
     DateTime DtmLastUpdated,
     string? BotTokenHash,
     string? BotName,
+    long? TgUserId,
     bool IsActive);
 
 public interface ISessionFacadeRead
@@ -88,10 +92,11 @@ public interface ISessionUpdateFacade
         TgSessionId sessionId,
         CancellationToken cancellationToken);
 
-    Task SetBotNameAsync(
+    Task SetBotCredentialsAsync(
         TgSessionId sessionId,
-        string botName,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? botName = null,
+        long? tgUserId = null);
 
     Task SetCurrentSessionAsync(
         string botTokenHash,
@@ -152,10 +157,8 @@ internal sealed class RecordingProxyFacade(
             botTokenHash: botTokenHash);
 
         var session = storage.CreateTgSession(
-            nonUniqueName,
-            botTokenHash,
-            botName)
-            .Then(s => StorageToApplication(s));
+            nonUniqueName)
+            .Then(s => StorageToApplication(s, null));
 
         await settingsStorage.SetCurrentTgSessionAsync(
             botTokenHash,
@@ -178,8 +181,9 @@ internal sealed class RecordingProxyFacade(
             fromIncluding,
             updateType,
             excludeProducedByBot);
+        var settings = settingsStorage.FindSettingsBySessionId(sessionId);
         var result = orderedRecords
-            .Select(StorageToApplication)
+            .Select(r => StorageToApplication(r, settings))
             .ToList();
 
         return result;
@@ -208,20 +212,7 @@ internal sealed class RecordingProxyFacade(
             dtmLastUpdatedBetweenIncluding,
             orderBy);
 
-        var activeSessionIds = new HashSet<TgSessionId>();
-        foreach (var session in result)
-        {
-            if (session.BotTokenHash is { } hash)
-            {
-                var current = settingsStorage.FindCurrentTgSessionAsync(hash);
-                if (current is { } id && id == session.Id)
-                {
-                    activeSessionIds.Add(session.Id);
-                }
-            }
-        }
-
-        return [.. result.Select(s => StorageToApplication(s, activeSessionIds.Contains(s.Id)))];
+        return [.. result.Select(s => StorageToApplication(s, settingsStorage.FindSettingsBySessionId(s.Id)))];
     }
 
     public async Task<TgSession> GetSessionAsync(
@@ -232,9 +223,9 @@ internal sealed class RecordingProxyFacade(
             sessionId,
             cancellationToken);
 
-        var session = sessions.Select(s => StorageToApplication(s)).Single();
-        var isActive = session.BotTokenHash is { } hash
-            && settingsStorage.FindCurrentTgSessionAsync(hash) == session.Id;
+        var settings = settingsStorage.FindSettingsBySessionId(sessionId);
+        var session = sessions.Select(s => StorageToApplication(s, settings)).Single();
+        var isActive = settings is not null && settings.CurrentTgSessionId == sessionId;
 
         return session with { IsActive = isActive };
     }
@@ -246,8 +237,6 @@ internal sealed class RecordingProxyFacade(
         string? body,
         CancellationToken cancellationToken)
     {
-        //var sessionId = GetCurrentSessionId();
-
         await storage.RecordBotRequestAsync(
             sessionId,
             DateTime.UtcNow, // TODO Use TimeProvider instead of DateTime static properties.
@@ -257,6 +246,109 @@ internal sealed class RecordingProxyFacade(
             request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString()),
             body,
             cancellationToken);
+
+        if (tgBotApiMethod == "sendMessage" && !string.IsNullOrWhiteSpace(body))
+        {
+            await RecordSendMessageAsync(sessionId, body, cancellationToken);
+        }
+        else if (tgBotApiMethod == "setMessageReaction" && !string.IsNullOrWhiteSpace(body))
+        {
+            await RecordSetMessageReactionAsync(sessionId, body, cancellationToken);
+        }
+    }
+
+    private async Task RecordSendMessageAsync(
+        TgSessionId sessionId,
+        string body,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var request = JsonSerializer.Deserialize<SendMessageRequest>(
+                body,
+                jsonOptions.Value.JsonSerializerOptions);
+
+            if (request is null)
+            {
+                return;
+            }
+
+            var message = new Message
+            {
+                Chat = new Chat
+                {
+                    Id = GetChatIdValue(request.ChatId),
+                    Username = request.ChatId.Username,
+                    Type = ChatType.Private,
+                },
+                Text = request.Text,
+                From = new User { Id = 1001, Username = "bot", IsBot = true },
+            };
+
+            await RecordUpdateAsync(
+                sessionId,
+                new Update { Message = message },
+                cancellationToken,
+                isProducedByBot: true);
+        }
+        catch (JsonException)
+        {
+            // The bot request record is already saved;
+            // child records are best-effort.
+        }
+    }
+
+    private async Task RecordSetMessageReactionAsync(
+        TgSessionId sessionId,
+        string body,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var request = JsonSerializer.Deserialize<SetMessageReactionRequest>(
+                body,
+                jsonOptions.Value.JsonSerializerOptions);
+
+            if (request is null)
+            {
+                return;
+            }
+
+            var reactions = request.Reaction?
+                .OfType<ReactionTypeEmoji>()
+                .Select(r => new ReactionTypeEmoji { Emoji = r.Emoji })
+                .ToArray() ?? [];
+
+            var update = new Update
+            {
+                MessageReaction = new()
+            };
+            update.MessageReaction!.MessageId = request.MessageId;
+            update.MessageReaction!.NewReaction = reactions;
+            update.MessageReaction!.User = new User { Id = 1001, Username = "bot", IsBot = true };
+            update.MessageReaction!.Chat = new Chat
+            {
+                Id = GetChatIdValue(request.ChatId),
+                Username = request.ChatId.Username,
+                Type = ChatType.Private,
+            };
+
+            await RecordUpdateAsync(
+                sessionId,
+                update,
+                cancellationToken,
+                isProducedByBot: true);
+        }
+        catch (JsonException)
+        {
+            // The bot request record is already saved;
+            // child records are best-effort.
+        }
+    }
+
+    private static long GetChatIdValue(ChatId chatId)
+    {
+        return chatId.Identifier is long id ? id : 0;
     }
 
     public async Task RecordTgServerResponseAsync(
@@ -291,25 +383,24 @@ internal sealed class RecordingProxyFacade(
             }
             else if (tgBotApiMethod == "sendMessage")
             {
-                var message = JsonSerializer.Deserialize<ApiResponse<Message>>(
+                var response = JsonSerializer.Deserialize<ApiResponse<Message>>(
                     content,
                     jsonOptions.Value.JsonSerializerOptions)?.Result;
 
-                if (message != null)
+                if (response is not null)
                 {
-                    var botName = message.From?.Username
-                        ?? message.From?.FirstName;
-                    if (!string.IsNullOrWhiteSpace(botName))
-                    {
-                        await SetBotNameAsync(sessionId, botName.Trim(), cancellationToken);
-                    }
+                    var botName = response.From?.Username
+                        ?? response.From?.FirstName;
+                    var tgUserId = response.From?.Id;
 
-                    await RecordUpdateAsync(
-                        sessionId,
-                        new Update { Message = message },
-                        cancellationToken,
-                        parentId,
-                        isProducedByBot: true);
+                    if (!string.IsNullOrWhiteSpace(botName) || tgUserId is { })
+                    {
+                        await SetBotCredentialsAsync(
+                            sessionId,
+                            cancellationToken,
+                            botName?.Trim(),
+                            tgUserId);
+                    }
                 }
             }
         }
@@ -368,29 +459,48 @@ internal sealed class RecordingProxyFacade(
             ?? throw new Exception("No current session.");
     }
 
-    private Update StorageToApplication(TgSessionUpdateRecord updateRecord)
+    private Update StorageToApplication(TgSessionUpdateRecord updateRecord, TgBotSettings? settings = null)
     {
         var update = JsonSerializer.Deserialize<Update>(
             updateRecord.EscapedContent,
             jsonOptions.Value.JsonSerializerOptions)
             ?? throw new Exception($"Cannot parse the update.");
 
-        // The Emulator identifies updates by their record primary key. This works for
-        // both real Telegram updates and locally produced ones (which have no Telegram ID).
         var queueId = (int)updateRecord.Id.Value;
         update.Id = queueId;
+
+        if (settings is not null && settings.TgUserId is { } tgUserId)
+        {
+            PatchBotUser(update.Message?.From, tgUserId, settings.BotName);
+            PatchBotUser(update.MessageReaction?.User, tgUserId, settings.BotName);
+        }
 
         return update;
     }
 
-    private static TgSession StorageToApplication(Storage.Contracts.Entities.TgSession session, bool isActive = false) => new(
+    private static void PatchBotUser(User? user, long tgUserId, string? botName)
+    {
+        if (user is null || user.Id != 1001 || user.Username != "bot")
+        {
+            return;
+        }
+
+        user.Id = tgUserId;
+        if (botName is not null)
+        {
+            user.Username = botName;
+        }
+    }
+
+    private static TgSession StorageToApplication(Storage.Contracts.Entities.TgSession session, TgBotSettings? settings = null) => new(
         session.Id,
         session.NonUniqueName,
         session.DtmCreated,
         session.DtmLastUpdated,
-        session.BotTokenHash,
-        session.BotName,
-        isActive
+        settings?.BotTokenHash,
+        settings?.BotName,
+        settings?.TgUserId,
+        settings is not null && settings.CurrentTgSessionId == session.Id
     );
 
     public async Task<TgSession?> RenameSessionAsync(
@@ -409,12 +519,13 @@ internal sealed class RecordingProxyFacade(
         return await storage.DeleteTgSessionAsync(sessionId, cancellationToken);
     }
 
-    public async Task SetBotNameAsync(
+    public async Task SetBotCredentialsAsync(
         TgSessionId sessionId,
-        string botName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? botName = null,
+        long? tgUserId = null)
     {
-        await storage.UpdateTgSessionBotNameAsync(sessionId, botName, cancellationToken);
+        await storage.UpdateBotCredentialsAsync(sessionId, cancellationToken, botName, tgUserId);
     }
 
     public async Task SetCurrentSessionAsync(

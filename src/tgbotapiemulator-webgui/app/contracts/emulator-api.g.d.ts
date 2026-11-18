@@ -83,6 +83,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/operatingMode/hash/{botTokenHash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botTokenHash: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OperatingMode"];
+                        "application/json": components["schemas"]["OperatingMode"];
+                        "text/json": components["schemas"]["OperatingMode"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/operatingMode/hash/{botTokenHash}/{operatingMode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    botTokenHash: string;
+                    operatingMode: components["schemas"]["OperatingMode"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OperatingMode"];
+                        "application/json": components["schemas"]["OperatingMode"];
+                        "text/json": components["schemas"]["OperatingMode"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assert/botShouldSendMessage": {
         parameters: {
             query?: never;
