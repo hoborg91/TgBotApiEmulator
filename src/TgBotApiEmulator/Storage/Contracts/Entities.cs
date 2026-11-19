@@ -18,6 +18,7 @@ internal class TgSession
 {
     public TgSessionId Id { get; set; }
     public required string NonUniqueName { get; set; }
+    public string? BotTokenHash { get; set; }
     public DateTime DtmCreated { get; set; }
     public DateTime DtmLastUpdated { get; set; }
 

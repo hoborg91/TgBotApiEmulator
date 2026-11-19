@@ -147,12 +147,14 @@ internal sealed class TgBotSessionStorage(
         GetTgSessionByIdInternal(tgSessionId);
 
     public TgSession CreateTgSession(
-        string nonUniqueName)
+        string nonUniqueName,
+        string? botTokenHash = null)
     {
         var now = timeProvider.GetUtcNow().DateTime;
         var session = new TgSession
         {
             NonUniqueName = nonUniqueName,
+            BotTokenHash = botTokenHash,
             DtmCreated = now,
             DtmLastUpdated = now,
         };

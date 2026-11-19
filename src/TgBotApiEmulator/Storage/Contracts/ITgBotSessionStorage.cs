@@ -36,7 +36,8 @@ internal interface ITgBotSessionStorage
         TgSessionId tgSessionId);
 
     TgSession CreateTgSession(
-        string nonUniqueName);
+        string nonUniqueName,
+        string? botTokenHash = null);
 
     Task<TgSession?> RenameTgSessionAsync(
         TgSessionId sessionId,

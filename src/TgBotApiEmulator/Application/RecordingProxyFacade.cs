@@ -157,7 +157,8 @@ internal sealed class RecordingProxyFacade(
             botTokenHash: botTokenHash);
 
         var session = storage.CreateTgSession(
-            nonUniqueName)
+            nonUniqueName,
+            botTokenHash: botTokenHash)
             .Then(s => StorageToApplication(s, null));
 
         await settingsStorage.SetCurrentTgSessionAsync(
@@ -497,7 +498,7 @@ internal sealed class RecordingProxyFacade(
         session.NonUniqueName,
         session.DtmCreated,
         session.DtmLastUpdated,
-        settings?.BotTokenHash,
+        session.BotTokenHash,
         settings?.BotName,
         settings?.TgUserId,
         settings is not null && settings.CurrentTgSessionId == session.Id
