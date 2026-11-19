@@ -650,7 +650,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/test/bot/{botTokenHash}/sessions": {
+    "/test/bot/hash/{botTokenHash}/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -718,7 +718,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/test/bot/{botTokenHash}/sessions/{sessionId}/set-active": {
+    "/test/bot/hash/{botTokenHash}/sessions/{sessionId}/set-active": {
         parameters: {
             query?: never;
             header?: never;
